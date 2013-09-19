@@ -17,6 +17,11 @@
     <ClCompile Include="test4.cpp" />
     <ClCompile Include="testXML.cpp" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="..\FlockingBoid\config.txt" />
+    <None Include="..\FlockingBoid\pos_data.txt.1000" />
+    <None Include="..\FlockingBoid\pos_data.txt.10240" />
+  </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{19F89C35-FD67-42CB-8BA8-03AEE2593E1B}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
