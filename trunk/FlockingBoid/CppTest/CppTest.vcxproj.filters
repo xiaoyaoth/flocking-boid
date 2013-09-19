@@ -27,4 +27,15 @@
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
+  <ItemGroup>
+    <None Include="..\FlockingBoid\config.txt">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="..\FlockingBoid\pos_data.txt.1000">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="..\FlockingBoid\pos_data.txt.10240">
+      <Filter>Resource Files</Filter>
+    </None>
+  </ItemGroup>
 </Project>
