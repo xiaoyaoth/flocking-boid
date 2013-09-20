@@ -55,9 +55,9 @@ namespace schUtil{
 	__global__ void scheduleRepeatingAllAgents(GModel *gm);
 	__global__ void step(GModel *gm);
 }
-//namespace rgenUtil{
-//	__global__ void initStates(GModel* gm, int seed);
-//}
+namespace rgenUtil{
+	__global__ void initStates(GRandomGen *rgen, int seed);
+}
 
 class GSteppable{
 public:
@@ -128,20 +128,21 @@ public:
 	friend class GModel;
 };
 class GRandomGen{
+public:
 	curandState *states;
 public:
 	void allocOnDevice();
 	__device__ float nextFloat();
 	__device__ float nextGaussian();
 	__device__ float nextFloat(curandState *state);
-	//friend void rgenUtil::initStates(GModel *gm, int seed);
+	friend void rgenUtil::initStates(GRandomGen *rgen, int seed);
 };
 class GModel{
 private:
 	Continuous2D *world, *worldH;
 	GScheduler *scheduler, *schedulerH;
-	//GRandomGen *rgen, *rgenH;
 public:
+	GRandomGen *rgen, *rgenH;
 	void allocOnHost();
 	void allocOnDevice();
 	__device__ Continuous2D* getWorld();
@@ -152,7 +153,6 @@ public:
 	__device__ void foo();
 	friend void schUtil::sortWithKey(GModel *model);
 	friend void c2dUtil::genNeighbor(GModel *model);
-	//friend void rgenUtil::initStates(GModel *gm, int seed);
 };
 
 //Continuous2D
@@ -308,10 +308,12 @@ void GModel::allocOnDevice(){
 	cudaMalloc((void**)&scheduler, sizeof(GScheduler));
 	cudaMemcpy(scheduler, schedulerH, sizeof(GScheduler), cudaMemcpyHostToDevice);
 
-	//rgenH = new GRandomGen();
-	//rgenH->allocOnDevice();
-	//cudaMalloc((void**)&rgen, sizeof(GRandomGen));
-	//cudaMemcpy(rgen, rgenH, sizeof(GRandomGen), cudaMemcpyHostToDevice);
+	rgenH = new GRandomGen();
+	rgenH->allocOnDevice();
+	cudaMalloc((void**)&rgen, sizeof(GRandomGen));
+	cudaMemcpy(rgen, rgenH, sizeof(GRandomGen), cudaMemcpyHostToDevice);
+	int gSize = GRID_SIZE;
+	rgenUtil::initStates<<<gSize, BLOCK_SIZE>>>(rgen, 1234);
 
 	cudaCheckErrors("GModel()");
 }
@@ -327,9 +329,6 @@ __device__ Continuous2D* GModel::getWorld(){
 __device__ GScheduler* GModel::getScheduler(){
 	return this->scheduler;
 }
-//__device__ GRandomGen* GModel::getGRandomGen(){
-//	return this->rgen;
-//}
 __device__ void GModel::addToWorld(GAgent *ag, int idx){
 	this->world->allAgents[idx] = ag;
 }
@@ -340,16 +339,13 @@ __device__ void GModel::addToScheduler(GAgent *ag, int idx){
 //GRandomGen
 void GRandomGen::allocOnDevice(){
 	size_t genRandStatesSize = GRID_SIZE*BLOCK_SIZE*sizeof(curandState);
-	printf("curandStateSize");
+	printf("curandStateSize: %d\n", genRandStatesSize);
 	cudaMalloc((void**)&states,genRandStatesSize);
 	cudaCheckErrors("GRandomGen::allocOnDevice");
 }
 __device__ float GRandomGen::nextFloat(){
 	int idx = threadIdx.x + blockIdx.x * blockDim.x;
-	curandState localState = states[idx];
-	float res = curand_uniform(&localState);
-	states[idx] = localState;
-	return res;
+	return curand_uniform(&states[idx]);
 }
 __device__ float GRandomGen::nextFloat(curandState *state){
 	return curand_uniform(state);
@@ -485,10 +481,10 @@ __global__ void schUtil::step(GModel *gm){
 }
 
 //namespace GRandomGen Utility
-//__global__ void rgenUtil::initStates(GModel *gm, int seed){
-//	int idx = threadIdx.x + blockIdx.x * blockDim.x;
-//	curand_init(seed, idx, 0, &gm->rgen->states[idx]);
-//}
+__global__ void rgenUtil::initStates(GRandomGen *rgen, int seed){
+	int idx = threadIdx.x + blockIdx.x * blockDim.x;
+	curand_init(seed, idx, 0, &rgen->states[idx]);
+}
 
 namespace gsim{
 

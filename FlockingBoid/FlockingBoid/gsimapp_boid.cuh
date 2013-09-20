@@ -261,15 +261,25 @@ __device__ float2d_t PreyBoid::searchFood(){return float2d_t(0,0);}
 __device__ float2d_t PreyBoid::conformSpeed(){return float2d_t(0,0);}
 __device__ float2d_t PreyBoid::searchMate(){return float2d_t(0,0);}
 __device__ float2d_t PreyBoid::randomness(GRandomGen *gen){return float2d_t(0,0);}
+
+__device__ float *randDebug;
 __device__ void PreyBoid::step(GModel *model){
 	iterInfo info;
 	Continuous2D *w = model->getWorld();
-	//GRandomGen *rgen = model->getGRandomGen();
 	int ptr = w->nextNeighborInit(this, 200, &info);
 	while (ptr != -1){
 		ptr = w->nextNeighbor(&info);
 	}
-	//float rand = rgen->nextFloat();
+	float xrand = model->rgen->nextFloat();
+	float yrand = model->rgen->nextFloat();
+	loc.x += (xrand-1)*info.count;
+	loc.y += (yrand-1)*info.count;
+	if(loc.x < 0)
+		loc.x += BOARDER_R;
+	if(loc.y < 0)
+		loc.y += BOARDER_D;
+	const int idx = threadIdx.x + blockIdx.x * blockDim.x;
+	randDebug[idx] = loc.x;
 	ptr = 0;
 }
 
