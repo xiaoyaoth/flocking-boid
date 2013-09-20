@@ -28,10 +28,8 @@ void initOnDevice(float *x_pos, float *y_pos){
 		x_pos_h[i] = atof(p);
 		p=strtok(NULL, " ");
 		y_pos_h[i] = atof(p);
-		//std::cout<<x_pos_h[i]<<" "<<y_pos_h[i]<<std::endl;
 		i++;
 	}
-
 	size_t floatDataSize = AGENT_NO*sizeof(float);
 	cudaMemcpy(x_pos, x_pos_h, floatDataSize, cudaMemcpyHostToDevice);
 	cudaMemcpy(y_pos, y_pos_h, floatDataSize, cudaMemcpyHostToDevice);
@@ -145,9 +143,6 @@ void readConfig(){
 
 int main(int argc, char *argv[]){
 	readConfig();
-	size_t mallocHeapSize;
-	cudaDeviceGetLimit(&mallocHeapSize, cudaLimitMallocHeapSize);
-	printf("cudaLimitMallocHeapSize: %d\n", mallocHeapSize);
 
 	int gSize = GRID_SIZE;
 	GModel *model_h = new GModel();
@@ -155,29 +150,35 @@ int main(int argc, char *argv[]){
 	GModel *model;
 	cudaMalloc((void**)&model, sizeof(GModel));
 	cudaMemcpy(model, model_h, sizeof(GModel), cudaMemcpyHostToDevice);
-	cudaCheckErrors("before read x_pos[] and y_pos");
 
 	float *x_pos, *y_pos;
 	size_t floatDataSize = AGENT_NO*sizeof(float);
 	cudaMalloc((void**)&x_pos, floatDataSize);
 	cudaMalloc((void**)&y_pos, floatDataSize);
 	initOnDevice(x_pos, y_pos);
-	cudaCheckErrors("before init random states");
 
-	//rgenUtil::initStates<<<gSize, BLOCK_SIZE>>>(model, 1234);
-	cudaCheckErrors("before add agents on device");
 	printf("size taken by the one agent:%d and all agents: %d\n",
 		sizeof(PreyBoid), AGENT_NO*sizeof(PreyBoid));
 	addAgentsOnDevice<<<gSize, BLOCK_SIZE>>>(model, x_pos, y_pos);
-	cudaCheckErrors("before going into the big loop");
 
 	//schUtil::scheduleRepeatingAllAgents<<<1, BLOCK_SIZE>>>(model);
+	float *devRandDebug;
+	cudaMalloc((void**)&devRandDebug, gSize*BLOCK_SIZE*sizeof(float));
+	cudaMemcpyToSymbol(randDebug, &devRandDebug, sizeof(devRandDebug),
+		0, cudaMemcpyHostToDevice);
+	cudaCheckErrors("before going into the big loop");
 	printf("steps: %d\n", STEPS);
-	for (int i=0; i<STEPS; i++){
-		c2dUtil::genNeighbor(model);
-		schUtil::step<<<gSize, BLOCK_SIZE>>>(model);
-	}
+	//for (int i=0; i<STEPS; i++){
+	c2dUtil::genNeighbor(model);
+	schUtil::step<<<gSize, BLOCK_SIZE>>>(model);
+	//}
 
+	float *hostRandDebug = (float*)malloc(gSize*BLOCK_SIZE*sizeof(float));
+	cudaMemcpy(hostRandDebug, devRandDebug, 
+		gSize*BLOCK_SIZE*sizeof(float), cudaMemcpyDeviceToHost);
+	for(int i=0; i<gSize*BLOCK_SIZE; i++)
+		printf("%f\t", hostRandDebug[i]);
+	printf("\n");
 	cudaCheckErrors("finished");
 	system("PAUSE");
 	return 0;
