@@ -10,6 +10,14 @@ enum BoidState{HUNGRY, NORMAL, FLEEING, STARVING, SEEKING_MATE};
 class BoidModel : public GModel{
 public:
 	GRandomGen * rgen;
+	float cohesion;
+	float avoidance;
+	float randomness;
+	float consistency;
+	float momentum;
+	float deadFlockerProbability;
+	float neighborhood;
+	float jump;
 };
 class BaseBoid : public GAgent {
 public:
@@ -205,12 +213,12 @@ public:
 /*v*/__device__ float2d_t PreyBoid::consistency(){
 	float x = 0;
 	float y = 0;
-	//int count = 0;
-	//int agIdx = -1;
+	int count = 0;
+	int agIdx = -1;
 
 	//iterInfo info;
 	//Continuous2D *w = this->model->world;
-	//int ptr = w->nextNeighborInit(this, 200, &info);
+	//int ptr = w->nextNeighborInit(this, this->model->neighborhood, &info);
 	//while (ptr != -1){
 	//	agIdx = w->neighborIdx[ptr];
 	//	BaseBoid *other = (BaseBoid*)w->allAgents[agIdx];
@@ -263,24 +271,28 @@ __device__ float2d_t PreyBoid::searchMate(){return float2d_t(0,0);}
 __device__ float2d_t PreyBoid::randomness(GRandomGen *gen){return float2d_t(0,0);}
 
 __device__ float *randDebug;
+#define STRIP 4
 __device__ void PreyBoid::step(GModel *model){
 	iterInfo info;
 	Continuous2D *w = model->getWorld();
-	int ptr = w->nextNeighborInit(this, 200, &info);
-	while (ptr != -1){
-		ptr = w->nextNeighbor(&info);
+	NextNeighborControl nnc = w->nextNeighborInit(this, 200, info);
+	while (nnc != STOP){
+		nnc = w->nextNeighbor(info);
 	}
-	float xrand = model->rgen->nextFloat();
-	float yrand = model->rgen->nextFloat();
-	loc.x += (xrand-1)*info.count;
-	loc.y += (yrand-1)*info.count;
-	if(loc.x < 0)
-		loc.x += BOARDER_R;
-	if(loc.y < 0)
-		loc.y += BOARDER_D;
-	const int idx = threadIdx.x + blockIdx.x * blockDim.x;
-	randDebug[idx] = loc.x;
-	ptr = 0;
+	info.ptr = 0;
+	//float xrand = model->rgen->nextFloat();
+	//float yrand = model->rgen->nextFloat();
+	//loc.x += (xrand-1)*info.count;
+	//loc.y += (yrand-1)*info.count;
+	//if(loc.x < 0)
+	//	loc.x += BOARDER_R;
+	//if(loc.y < 0)
+	//	loc.y += BOARDER_D;
+	//const int idx = threadIdx.x + blockIdx.x * blockDim.x;
+	//randDebug[STRIP*idx] = xrand;
+	//randDebug[STRIP*idx+1] = yrand;
+	//randDebug[STRIP*idx+2] = loc.x;
+	//randDebug[STRIP*idx+3] = loc.y;
 }
 
 //PredatorBoid

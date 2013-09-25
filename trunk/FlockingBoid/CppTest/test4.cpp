@@ -3,8 +3,15 @@
 #include <algorithm>
 #include <map>
 #include <Windows.h>
+#include <iostream>
+#include <string>
+#include <sstream>
+#include <iterator>
 
 #define VERBOSE	 0
+
+class GModel;
+class GAgent;
 
 typedef struct iter_info_per_thread
 {
@@ -12,26 +19,15 @@ typedef struct iter_info_per_thread
 	int2d_t cell_ul;
 	int2d_t cell_dr;
 
-	int ag_id;
 	int ptr;
 	int boarder;
 	int count;
+	const GAgent *agent;
 
-	void print(){
-		printf("======iter info======\n");
-		printf("agent_id: %d", ag_id);
-		printf("cell_cur: ");
-		cell_cur.print();
-		printf("\ncell_ul: ");
-		cell_ul.print();
-		printf("\ncell_dr: ");
-		cell_dr.print();
-		printf("\nptr: %d\ncellIdx_border: %d\n", ptr, boarder);
-		printf("=====================\n");
-	}
+	float range;
 } iterInfo;
+enum NextNeighborControl{CONTINUE, STOP, FOUND};
 
-class GModel;
 class GAgent{
 public:
 	int ag_id;
@@ -49,8 +45,14 @@ public:
 	int *neighborIdx, *cellIdx;
 	void allocOnDevice();
 	void allocOnHost();
-	int nextNeighborInit(const GAgent* ag, const int range, iterInfo *info);
-	int nextNeighbor(iterInfo *info);
+	NextNeighborControl nextNeighborInit(const GAgent* ag, const int range, iterInfo &info);
+	NextNeighborControl nextNeighbor(iterInfo &info);
+	NextNeighborControl nextNeighborPrimitive(iterInfo &info);
+	float tds(float2d_t loc1, float2d_t loc2){
+		float dx = loc1.x - loc2.x;
+		float dy = loc1.y - loc2.y;
+		return sqrt(dx*dx + dy*dy);
+	}
 };
 class GModel{
 public:
@@ -73,48 +75,67 @@ public:
 
 int GAgent::agIdCount = 0;
 
-int Continuous2D::nextNeighborInit(const GAgent* ag, const int range, iterInfo *info){
+NextNeighborControl Continuous2D::nextNeighborInit(const GAgent* ag, const int range, iterInfo &info){
 	float2d_t pos = ag->loc;
-	info->ptr = -1;
-	info->boarder = -1;
-	info->count = 0;
-	info->cell_ul.x = (pos.x-range)>BOARDER_L ? (int)(pos.x-range)/CELL_RESO : (int)BOARDER_L/CELL_RESO;
-	info->cell_dr.x = (pos.x+range)<BOARDER_R ? (int)(pos.x+range)/CELL_RESO : (int)BOARDER_R/CELL_RESO-1;
-	info->cell_ul.y = (pos.y-range)>BOARDER_U ? (int)(pos.y-range)/CELL_RESO : (int)BOARDER_U/CELL_RESO;
-	info->cell_dr.y = (pos.y+range)<BOARDER_D ? (int)(pos.y+range)/CELL_RESO : (int)BOARDER_D/CELL_RESO-1;
-	info->cell_cur.x = info->cell_ul.x;
-	info->cell_cur.y = info->cell_ul.y;
-	info->ptr = cellIdx[info->cell_cur.cell_id()];
-	if (info->cell_cur.cell_id() == CELL_NO-1)
-		info->boarder = AGENT_NO-1;
+	info.agent = ag;
+	info.ptr = -1;
+	info.boarder = -1;
+	info.count = 0;
+	info.range = range;
+	info.cell_ul.x = (pos.x-range)>BOARDER_L ? (int)(pos.x-range)/CELL_RESO : (int)BOARDER_L/CELL_RESO;
+	info.cell_dr.x = (pos.x+range)<BOARDER_R ? (int)(pos.x+range)/CELL_RESO : (int)BOARDER_R/CELL_RESO-1;
+	info.cell_ul.y = (pos.y-range)>BOARDER_U ? (int)(pos.y-range)/CELL_RESO : (int)BOARDER_U/CELL_RESO;
+	info.cell_dr.y = (pos.y+range)<BOARDER_D ? (int)(pos.y+range)/CELL_RESO : (int)BOARDER_D/CELL_RESO-1;
+	info.cell_cur.x = info.cell_ul.x;
+	info.cell_cur.y = info.cell_ul.y;
+	info.ptr = cellIdx[info.cell_cur.cell_id()];
+	if (info.cell_cur.cell_id() == CELL_NO-1)
+		info.boarder = AGENT_NO-1;
 	else
-		info->boarder = cellIdx[info->cell_cur.cell_id()+1];
-	//info->print();
-	info->count++;
-	return info->ptr;
+		info.boarder = cellIdx[info.cell_cur.cell_id()+1];
+
+	GAgent *other = this->allAgents[this->neighborIdx[info.ptr]];
+	if (tds(ag->loc, other->loc) < range){
+		info.count++;
+		return FOUND;
+	} else
+		return this->nextNeighbor(info);
 }
-int Continuous2D::nextNeighbor(iterInfo *info){
-	info->ptr++;
-	if (info->ptr > info->boarder) {
-		info->cell_cur.x++;
-		if (info->cell_cur.x <= info->cell_dr.x)
-			info->ptr = cellIdx[info->cell_cur.cell_id()];
+NextNeighborControl Continuous2D::nextNeighborPrimitive(iterInfo &info){
+	info.ptr++;
+	info.count++;
+	if (info.ptr > info.boarder) {
+		info.cell_cur.x++;
+		if (info.cell_cur.x <= info.cell_dr.x)
+			info.ptr = cellIdx[info.cell_cur.cell_id()];
 		else {
-			info->cell_cur.x = info->cell_ul.x;
-			info->cell_cur.y++;
-			if(info->cell_cur.y <= info->cell_dr.y)
-				info->ptr = cellIdx[info->cell_cur.cell_id()];
+			info.cell_cur.x = info.cell_ul.x;
+			info.cell_cur.y++;
+			if(info.cell_cur.y <= info.cell_dr.y)
+				info.ptr = cellIdx[info.cell_cur.cell_id()];
 			else
-				return -1;
+				return STOP;
 		}
-		if (info->cell_cur.cell_id() == CELL_NO-1)
-			info->boarder = AGENT_NO-1;
+		if (info.cell_cur.cell_id() == CELL_NO-1)
+			info.boarder = AGENT_NO-1;
 		else
-			info->boarder = cellIdx[info->cell_cur.cell_id()+1];
+			info.boarder = cellIdx[info.cell_cur.cell_id()+1];
 	}
-	//info->print();
-	info->count++;
-	return info->ptr;
+	//info.print();
+	return CONTINUE;
+}
+
+NextNeighborControl Continuous2D::nextNeighbor(iterInfo &info){
+	NextNeighborControl nnc = this->nextNeighborPrimitive(info);
+	GAgent *other;
+	while (nnc == CONTINUE){
+		other = this->allAgents[this->neighborIdx[info.ptr]];
+		if (tds(info.agent->loc, other->loc) < info.range){
+			return FOUND;
+		}
+		nnc = this->nextNeighborPrimitive(info);
+	}
+	return nnc;
 }
 
 #ifdef __CUDACC__
@@ -224,8 +245,13 @@ void sortHash2(int *hash, Continuous2D *c2d){
 			c2d->cellIdx[i+1]=count;
 	}
 }
+#define SORTMETHOD 1
 void sortHash(int *hash, Continuous2D *c2d){
+#if SORTMETHOD 1
 	sortHash1(hash, c2d);
+#else
+	sortHash2(hash, c2d);
+#endif
 }
 void genNeighbor(Continuous2D *c2d){
 	size_t agArraySize = AGENT_NO*sizeof(int);
@@ -236,15 +262,36 @@ void genNeighbor(Continuous2D *c2d){
 	std::cout<<std::endl;
 #endif
 }
-void queryNeighbor(Continuous2D *c2d){
+
+float *randDebugArray;
+int strip = 1;
+void queryNeighbor(Continuous2D *c2d, std::string str1, std::string str2){
+	std::istringstream buf1(str1);
+	std::istringstream buf2(str2);
+    std::istream_iterator<std::string> begin1(buf1), end1;
+	std::istream_iterator<std::string> begin2(buf2), end2;
+    std::vector<std::string> tokens1(begin1, end1); // done!
+	std::vector<std::string> tokens2(begin2, end2); // done!
+
 	for(int i=0; i<AGENT_NO; i++){
 		GAgent *ag = c2d->allAgents[i];
 		iterInfo info;
-		int ptr = c2d->nextNeighborInit(ag, 200, &info);
-		while(ptr != -1){
-			ptr = c2d->nextNeighbor(&info);
+		NextNeighborControl nnc;
+		nnc = c2d->nextNeighborInit(ag, 200, info);
+		while(nnc != STOP){
+			nnc = c2d->nextNeighbor(info);
 		}
-		//std::cout<<info.count<<" ";
+		std::cout<<info.count<<" ";
+		float rand1 = atof(tokens1[i].c_str());
+		float rand2 = atof(tokens2[i].c_str());
+		ag->loc.x += (rand1-1) * info.count;
+		ag->loc.y += (rand2-1) * info.count;
+		if(ag->loc.x < 0)
+			ag->loc.x += BOARDER_R;
+		if(ag->loc.y < 0)
+			ag->loc.y += BOARDER_D;
+		randDebugArray[i*strip] = info.count;
+		//randDebugArray[i*strip+1] = ag->loc.y;
 	}
 	//std::cout<<std::endl;
 }
@@ -262,20 +309,56 @@ void test2() {
 		ag->loc.y = y_pos_h[i];
 		model->world->allAgents[i] = ag;
 	}
-	for(int i=0; i<1000; i++){
+
+	std::ifstream fin("randDebugOut2.txt");
+	std::string str1;
+	std::string str2;
+	std::fstream randDebugOut3;
+#if SORTMETHOD 1
+	randDebugOut3.open("randDebugOut3.txt", std::ios::out);
+#else
+	randDebugOut3.open("randDebugOut4.txt", std::ios::out);
+#endif
+
+	for(int i=0; i<1; i++){
 		genNeighbor(model->world);
-		queryNeighbor(model->world);
+		std::getline(fin, str1);
+		std::getline(fin, str2);
+		queryNeighbor(model->world, str1, str2);
+		for(int j=0; j<AGENT_NO; j++){
+			randDebugOut3
+			<<randDebugArray[strip*j]<<"\t"
+			//<<randDebugArray[strip*j + 1]<<"\t"
+			<<std::endl;
+			randDebugOut3.flush();
+		}
+		//randDebugOut3<<std::endl;
 		//std::cout<<i<<" ";
 	}
+	randDebugOut3.close();
 	//std::cout<<std::endl;
 }
 
-int main4(){
+int test3(){
+	std::ifstream fin("randDebugOut2.txt");
+	std::string str;
+	std::getline(fin, str);
+	std::istringstream buf(str);
+    std::istream_iterator<std::string> beg(buf), end;
+    std::vector<std::string> tokens(beg, end); // done!
+	for(int i=0; i<1024; i++)
+		std::cout<<tokens[i]<<" ";
+	std::cout<<std::endl;
+	return 0;
+}
+
+int main(){
+	randDebugArray = (float*)malloc(AGENT_NO*strip*sizeof(float));
 	int start = GetTickCount();
 	test2();
 	int end = GetTickCount();
 	int diff = end-start;
 	std::cout<<"Took "<<diff<<" ms"<<std::endl;
-	std::cin>>diff;
+	system("PAUSE");
 	return 0;
 }

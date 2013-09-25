@@ -13,7 +13,7 @@
 #define BOARDER_U	0
 #define BOARDER_D	1000
 #define XLENGTH		((int)(BOARDER_R-BOARDER_L)/CELL_RESO)
-#define AGENT_NO	2048
+#define AGENT_NO	1024
 #define CELL_NO		100 //10*10
 #define BLOCK_SIZE	1024
 
