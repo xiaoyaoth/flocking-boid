@@ -162,122 +162,51 @@ int main(int argc, char *argv[]){
 	addAgentsOnDevice<<<gSize, BLOCK_SIZE>>>(model, x_pos, y_pos);
 
 	//schUtil::scheduleRepeatingAllAgents<<<1, BLOCK_SIZE>>>(model);
-	float *devRandDebug;
-	cudaMalloc((void**)&devRandDebug, gSize*BLOCK_SIZE*sizeof(float));
-	cudaMemcpyToSymbol(randDebug, &devRandDebug, sizeof(devRandDebug),
-		0, cudaMemcpyHostToDevice);
 	cudaCheckErrors("before going into the big loop");
 	printf("steps: %d\n", STEPS);
-	//for (int i=0; i<STEPS; i++){
-	c2dUtil::genNeighbor(model);
-	schUtil::step<<<gSize, BLOCK_SIZE>>>(model);
-	//}
 
-	float *hostRandDebug = (float*)malloc(gSize*BLOCK_SIZE*sizeof(float));
-	cudaMemcpy(hostRandDebug, devRandDebug, 
-		gSize*BLOCK_SIZE*sizeof(float), cudaMemcpyDeviceToHost);
-	for(int i=0; i<gSize*BLOCK_SIZE; i++)
-		printf("%f\t", hostRandDebug[i]);
-	printf("\n");
+	for (int i=0; i<STEPS; i++){
+		c2dUtil::genNeighbor(model);
+		schUtil::step<<<gSize, BLOCK_SIZE>>>(model);
+	}
 	cudaCheckErrors("finished");
 	system("PAUSE");
 	return 0;
 }
 
-//namespace backupCode{
-//	void addAgentsToC2DOnDeviceSide(){//add on device side
-//		GModel *model_h = new GModel();
-//		model_h->allocOnDevice();
-//		GModel *model_d;
-//		cudaMalloc((void**)&model_d, sizeof(GModel));
-//		cudaMemcpy(model_d, model_h, sizeof(GModel), cudaMemcpyHostToDevice);
-//		//gmUtil::addAgents_kernel<<<1, BLOCK_SIZE>>>(model_d);
-//	}
-//
-//	void initOnHost(GAgent **allAg_h){
-//
-//		float *x_pos_h, *y_pos_h;
-//		x_pos_h = (float*)malloc(AGENT_NO*sizeof(float));
-//		y_pos_h = (float*)malloc(AGENT_NO*sizeof(float));
-//
-//		std::ifstream fin("pos_data.txt");
-//		std::string rec;
-//
-//		char *cstr, *p;
-//		int i = 0;
-//		cstr = (char *)malloc((rec.length() + 1) * sizeof(char));
-//		while (!fin.eof()) {
-//			std::getline(fin, rec);
-//			std::strcpy(cstr, rec.c_str());
-//			if(strcmp(cstr,"")==0)
-//				break;
-//			p=strtok(cstr, " ");
-//			x_pos_h[i] = atof(p);
-//			p=strtok(NULL, " ");
-//			y_pos_h[i] = atof(p);
-//			i++;
-//		}
-//
-//		for(int i=0; i<AGENT_NO; i++){
-//			GAgent *ag
-//				//= new GAgent()
-//				;
-//			ag->time = i;
-//			ag->rank = AGENT_NO-i;
-//			ag->loc.x = x_pos_h[i];
-//			ag->loc.y = y_pos_h[i];
-//			GAgent *ag_d;
-//			cudaMalloc((void**)&ag_d, sizeof(GAgent));
-//			cudaMemcpy(ag_d, ag, sizeof(GAgent), cudaMemcpyHostToDevice);
-//			delete ag;
-//			allAg_h[i] = ag_d;
-//		}
-//	}
-//	void addAgentsToC2DOnHost(GModel *model_d, GAgent **allAgents_h){//add on host side
-//		GModel *model_h = new GModel();
-//		cudaMemcpy(model_h, model_d, sizeof(GModel), cudaMemcpyDeviceToHost);
-//		Continuous2D *world_h = new Continuous2D();
-//		cudaMemcpy(world_h, model_h->world, sizeof(Continuous2D), cudaMemcpyDeviceToHost);
-//		cudaMemcpy(world_h->allAgents, allAgents_h, AGENT_NO*sizeof(GAgent*), cudaMemcpyHostToDevice);
-//		delete model_h;
-//		delete world_h;
-//		//float *x_pos_h, *y_pos_h;
-//		//x_pos_h = (float*)malloc(AGENT_NO*sizeof(float));
-//		//y_pos_h = (float*)malloc(AGENT_NO*sizeof(float));
-//		//init(x_pos_h, y_pos_h);
-//		//for(int i=0; i<AGENT_NO; i++){
-//		//	GAgent *ag = new GAgent();
-//		//	ag->ag_id = i;
-//		//	ag->loc.x = x_pos_h[i];
-//		//	ag->loc.y = y_pos_h[i];
-//		//	GAgent *ag_d;
-//		//	cudaMalloc((void**)&ag_d, sizeof(GAgent));
-//		//	cudaMemcpy(ag_d, ag, sizeof(GAgent), cudaMemcpyHostToDevice);
-//		//	cudaMemcpy(&world_h->allAgents[i], &ag_d, sizeof(GAgent*), cudaMemcpyHostToDevice);
-//		//}
-//	}
-//	void addAgentsToSchOnHost(GModel *gm, GAgent **allAgents_h){//add on host side
-//		GModel *model_h = new GModel();
-//		GScheduler *scheduler_h = new GScheduler();
-//		cudaMemcpy(model_h, gm, sizeof(GModel), cudaMemcpyDeviceToHost);
-//		cudaMemcpy(scheduler_h, model_h->scheduler, sizeof(GScheduler), cudaMemcpyDeviceToHost);
-//		cudaMemcpy(scheduler_h->allAgents, allAgents_h, AGENT_NO*sizeof(GAgent*), cudaMemcpyHostToDevice);
-//		delete model_h;
-//		delete scheduler_h;
-//	}
-//
-//	void backup(){
-//		//seg1
-//		//GAgent **allAgents_h = (GAgent**)malloc(AGENT_NO*sizeof(GAgent*));
-//		//init(allAgents_h);
-//		//addAgentsToC2DOnHostSide(model, allAgents_h);
-//		//addAgentsToSchOnHostSide(model, allAgents_h);
-//
-//		//seg2
-//		//model_h = new GModel();
-//		//cudaMemcpy(model_h, model, sizeof(GModel), cudaMemcpyDeviceToHost);
-//		//c2dUtil::genNeighbor(model_h->world);
-//		//c2dUtil::queryNeighbor<<<1, BLOCK_SIZE>>>(model_h->world);
-//		//schUtil::sortWithKey(model);
-//	}
-//};
+void backupcode1(){ //devRand
+	int gSize = GRID_SIZE;
+	float *devRandDebug;
+	cudaMalloc((void**)&devRandDebug, STRIP*gSize*BLOCK_SIZE*sizeof(float));
+	cudaMemcpyToSymbol(randDebug, &devRandDebug, sizeof(devRandDebug),
+		0, cudaMemcpyHostToDevice);
+
+	std::fstream randDebugOut;
+	std::fstream randDebugOut2;
+	randDebugOut.open("randDebugOut.txt", std::ios::out);
+	randDebugOut2.open("randDebugOut2.txt", std::ios::out);
+	float *hostRandDebug = (float*)malloc(STRIP*gSize*BLOCK_SIZE*sizeof(float));
+
+	cudaMemcpy(hostRandDebug, devRandDebug, 
+		STRIP*gSize*BLOCK_SIZE*sizeof(float), cudaMemcpyDeviceToHost);
+	for(int i=0; i<gSize*BLOCK_SIZE; i++) {
+		randDebugOut2<<hostRandDebug[STRIP*i]<<"\t";
+		randDebugOut2.flush();
+	}
+	randDebugOut2<<std::endl;
+	for(int i=0; i<gSize*BLOCK_SIZE; i++) {
+		randDebugOut2<<hostRandDebug[STRIP*i+1]<<"\t";
+		randDebugOut2.flush();
+	}
+	randDebugOut2<<std::endl;
+	for(int i=0; i<gSize*BLOCK_SIZE; i++) {
+		randDebugOut<<
+			hostRandDebug[STRIP*i]<<" \t"<<
+			hostRandDebug[STRIP*i+1]<<" \t"<<
+			hostRandDebug[STRIP*i+2]<<" \t"<<
+			hostRandDebug[STRIP*i+3]<<" \t"<<
+			std::endl;
+		randDebugOut.flush();
+	}
+	randDebugOut.close();
+}

@@ -124,7 +124,7 @@ int readXML(){
 	return EXIT_SUCCESS;
 }
 
-int main() {
+int mainXML() {
 	writeXML();
 	readXML();
 	return EXIT_SUCCESS;
