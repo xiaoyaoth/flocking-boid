@@ -103,12 +103,13 @@ NextNeighborControl Continuous2D::nextNeighborInit(const GAgent* ag, const int r
 }
 NextNeighborControl Continuous2D::nextNeighborPrimitive(iterInfo &info){
 	info.ptr++;
-	info.count++;
+	
 	if (info.ptr > info.boarder) {
 		info.cell_cur.x++;
-		if (info.cell_cur.x <= info.cell_dr.x)
+		if (info.cell_cur.x <= info.cell_dr.x) {
 			info.ptr = cellIdx[info.cell_cur.cell_id()];
-		else {
+		} else {
+		//if (info.cell_cur.x > info.cell_dr.x) {
 			info.cell_cur.x = info.cell_ul.x;
 			info.cell_cur.y++;
 			if(info.cell_cur.y <= info.cell_dr.y)
@@ -128,9 +129,14 @@ NextNeighborControl Continuous2D::nextNeighborPrimitive(iterInfo &info){
 NextNeighborControl Continuous2D::nextNeighbor(iterInfo &info){
 	NextNeighborControl nnc = this->nextNeighborPrimitive(info);
 	GAgent *other;
+	float ds;
 	while (nnc == CONTINUE){
 		other = this->allAgents[this->neighborIdx[info.ptr]];
-		if (tds(info.agent->loc, other->loc) < info.range){
+		ds = tds(info.agent->loc, other->loc);
+		if (info.agent->ag_id == 576)
+			printf("%d\t%f\n", other->ag_id, ds);
+		if (ds < info.range){
+			info.count++;
 			return FOUND;
 		}
 		nnc = this->nextNeighborPrimitive(info);
@@ -245,9 +251,9 @@ void sortHash2(int *hash, Continuous2D *c2d){
 			c2d->cellIdx[i+1]=count;
 	}
 }
-#define SORTMETHOD 1
+#define SORTMETHOD 2
 void sortHash(int *hash, Continuous2D *c2d){
-#if SORTMETHOD 1
+#if SORTMETHOD == 1
 	sortHash1(hash, c2d);
 #else
 	sortHash2(hash, c2d);
@@ -282,14 +288,14 @@ void queryNeighbor(Continuous2D *c2d, std::string str1, std::string str2){
 			nnc = c2d->nextNeighbor(info);
 		}
 		std::cout<<info.count<<" ";
-		float rand1 = atof(tokens1[i].c_str());
-		float rand2 = atof(tokens2[i].c_str());
-		ag->loc.x += (rand1-1) * info.count;
-		ag->loc.y += (rand2-1) * info.count;
-		if(ag->loc.x < 0)
-			ag->loc.x += BOARDER_R;
-		if(ag->loc.y < 0)
-			ag->loc.y += BOARDER_D;
+		//float rand1 = atof(tokens1[i].c_str());
+		//float rand2 = atof(tokens2[i].c_str());
+		//ag->loc.x += (rand1-1) * info.count;
+		//ag->loc.y += (rand2-1) * info.count;
+		//if(ag->loc.x < 0)
+		//	ag->loc.x += BOARDER_R;
+		//if(ag->loc.y < 0)
+		//	ag->loc.y += BOARDER_D;
 		randDebugArray[i*strip] = info.count;
 		//randDebugArray[i*strip+1] = ag->loc.y;
 	}
@@ -314,7 +320,7 @@ void test2() {
 	std::string str1;
 	std::string str2;
 	std::fstream randDebugOut3;
-#if SORTMETHOD 1
+#if SORTMETHOD == 1
 	randDebugOut3.open("randDebugOut3.txt", std::ios::out);
 #else
 	randDebugOut3.open("randDebugOut4.txt", std::ios::out);
