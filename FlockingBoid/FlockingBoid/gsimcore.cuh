@@ -70,6 +70,7 @@ public:
 };
 class GAgent : public GSteppable{
 private:
+	GAgent *dummy;
 	int ag_id;
 public:
 	float2d_t loc;
@@ -192,7 +193,7 @@ void Continuous2D::allocOnHost(){
 }
 __device__ float Continuous2D::tdx(float ax, float bx){return 0;}
 __device__ float Continuous2D::tdy(float ay, float by){return 0;}
-__device__ float Continuous2D::tds(float2d_t loc1, float2d_t loc2){
+__device__ float Continuous2D::tds(const float2d_t loc1, const float2d_t loc2){
 	float dx = loc1.x - loc2.x;
 	float dy = loc1.y - loc2.y;
 	return sqrt(dx*dx + dy*dy);
@@ -236,12 +237,9 @@ __device__ NextNeighborControl Continuous2D::nextNeighborInit(const GAgent* ag,
 __device__ NextNeighborControl Continuous2D::nextNeighborPrimitive(iterInfo &info){
 	info.ptr++;
 
-	if (info.ptr > info.boarder) {
+	if (info.ptr >= info.boarder) {
 		info.cellCur.x++;
-		if (info.cellCur.x <= info.cellDR.x)
-			info.ptr = cellIdx[info.cellCur.cell_id()];
-		else {
-
+		if (info.cellCur.x > info.cellDR.x){
 			info.cellCur.x = info.cellUL.x;
 			info.cellCur.y++;
 			if(info.cellCur.y <= info.cellDR.y)
@@ -261,11 +259,10 @@ __device__ NextNeighborControl Continuous2D::nextNeighborPrimitive(iterInfo &inf
 __device__ NextNeighborControl Continuous2D::nextNeighbor(iterInfo &info){
 	NextNeighborControl nnc = this->nextNeighborPrimitive(info);
 	GAgent *other;
+	float ds;
 	while (nnc == CONTINUE){
 		other = this->allAgents[this->neighborIdx[info.ptr]];
-		float ds = tds(info.agent->loc, other->loc);
-		if (info.agent->getAgId() == 576)
-			printf("%d\t%f\n", other->getAgId(), ds);
+		ds = tds(info.agent->loc, other->loc);
 		if (ds < info.range){
 			info.count++;
 			return FOUND;
