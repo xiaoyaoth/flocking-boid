@@ -117,9 +117,6 @@ public:
 
 	PreyBoid *lastTarget;
 
-	__device__ PredatorBoid(float2d_t loc){
-
-	}
 	__device__ float distanceToOther(BaseBoid* ag);
 	__device__ void accelerate();
 	__device__ void decelerate();

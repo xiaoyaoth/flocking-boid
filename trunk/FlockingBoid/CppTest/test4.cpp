@@ -9,6 +9,7 @@
 #include <iterator>
 
 #define VERBOSE	 0
+#define SORTMETHOD 2
 
 class GModel;
 class GAgent;
@@ -32,6 +33,7 @@ class GAgent{
 public:
 	int ag_id;
 	float2d_t loc;
+	GAgent *dummy;
 	static int agIdCount;
 	GAgent(){
 		this->ag_id = agIdCount;
@@ -95,7 +97,10 @@ NextNeighborControl Continuous2D::nextNeighborInit(const GAgent* ag, const int r
 		info.boarder = cellIdx[info.cell_cur.cell_id()+1];
 
 	GAgent *other = this->allAgents[this->neighborIdx[info.ptr]];
-	if (tds(ag->loc, other->loc) < range){
+	float ds = tds(ag->loc, other->loc);
+	if (info.agent->ag_id == 576)
+		printf("%d %f\n", other->ag_id, ds);
+	if (ds < range){
 		info.count++;
 		return FOUND;
 	} else
@@ -103,13 +108,13 @@ NextNeighborControl Continuous2D::nextNeighborInit(const GAgent* ag, const int r
 }
 NextNeighborControl Continuous2D::nextNeighborPrimitive(iterInfo &info){
 	info.ptr++;
-	
-	if (info.ptr > info.boarder) {
+
+	if (info.ptr >= info.boarder) {
 		info.cell_cur.x++;
-		if (info.cell_cur.x <= info.cell_dr.x) {
-			info.ptr = cellIdx[info.cell_cur.cell_id()];
-		} else {
-		//if (info.cell_cur.x > info.cell_dr.x) {
+		//if (info.cell_cur.x <= info.cell_dr.x) {
+		//	info.ptr = cellIdx[info.cell_cur.cell_id()];
+		//} else {
+		if (info.cell_cur.x > info.cell_dr.x) {
 			info.cell_cur.x = info.cell_ul.x;
 			info.cell_cur.y++;
 			if(info.cell_cur.y <= info.cell_dr.y)
@@ -125,7 +130,6 @@ NextNeighborControl Continuous2D::nextNeighborPrimitive(iterInfo &info){
 	//info.print();
 	return CONTINUE;
 }
-
 NextNeighborControl Continuous2D::nextNeighbor(iterInfo &info){
 	NextNeighborControl nnc = this->nextNeighborPrimitive(info);
 	GAgent *other;
@@ -134,7 +138,7 @@ NextNeighborControl Continuous2D::nextNeighbor(iterInfo &info){
 		other = this->allAgents[this->neighborIdx[info.ptr]];
 		ds = tds(info.agent->loc, other->loc);
 		if (info.agent->ag_id == 576)
-			printf("%d\t%f\n", other->ag_id, ds);
+			printf("%d %f\n", other->ag_id, ds);
 		if (ds < info.range){
 			info.count++;
 			return FOUND;
@@ -174,7 +178,6 @@ void Continuous2D::allocOnHost(){
 	this->cellIdx = (int*)malloc(sizeCellArray);
 	this->allAgents = (GAgent**)malloc(AGENT_NO*sizeof(GAgent*));
 }
-
 void init(float *x_pos_h, float *y_pos_h){
 
 	std::ifstream fin("pos_data.txt.10240");
@@ -251,13 +254,14 @@ void sortHash2(int *hash, Continuous2D *c2d){
 			c2d->cellIdx[i+1]=count;
 	}
 }
-#define SORTMETHOD 2
+
 void sortHash(int *hash, Continuous2D *c2d){
 #if SORTMETHOD == 1
 	sortHash1(hash, c2d);
 #else
 	sortHash2(hash, c2d);
 #endif
+
 }
 void genNeighbor(Continuous2D *c2d){
 	size_t agArraySize = AGENT_NO*sizeof(int);
@@ -274,9 +278,9 @@ int strip = 1;
 void queryNeighbor(Continuous2D *c2d, std::string str1, std::string str2){
 	std::istringstream buf1(str1);
 	std::istringstream buf2(str2);
-    std::istream_iterator<std::string> begin1(buf1), end1;
+	std::istream_iterator<std::string> begin1(buf1), end1;
 	std::istream_iterator<std::string> begin2(buf2), end2;
-    std::vector<std::string> tokens1(begin1, end1); // done!
+	std::vector<std::string> tokens1(begin1, end1); // done!
 	std::vector<std::string> tokens2(begin2, end2); // done!
 
 	for(int i=0; i<AGENT_NO; i++){
@@ -301,7 +305,6 @@ void queryNeighbor(Continuous2D *c2d, std::string str1, std::string str2){
 	}
 	//std::cout<<std::endl;
 }
-
 void test2() {
 	GModel *model = new GModel();
 	model->allocOnHost();
@@ -325,7 +328,6 @@ void test2() {
 #else
 	randDebugOut3.open("randDebugOut4.txt", std::ios::out);
 #endif
-
 	for(int i=0; i<1; i++){
 		genNeighbor(model->world);
 		std::getline(fin, str1);
@@ -333,9 +335,8 @@ void test2() {
 		queryNeighbor(model->world, str1, str2);
 		for(int j=0; j<AGENT_NO; j++){
 			randDebugOut3
-			<<randDebugArray[strip*j]<<"\t"
-			//<<randDebugArray[strip*j + 1]<<"\t"
-			<<std::endl;
+				<<randDebugArray[strip*j]<<"\t"
+				<<std::endl;
 			randDebugOut3.flush();
 		}
 		//randDebugOut3<<std::endl;
@@ -344,20 +345,18 @@ void test2() {
 	randDebugOut3.close();
 	//std::cout<<std::endl;
 }
-
 int test3(){
 	std::ifstream fin("randDebugOut2.txt");
 	std::string str;
 	std::getline(fin, str);
 	std::istringstream buf(str);
-    std::istream_iterator<std::string> beg(buf), end;
-    std::vector<std::string> tokens(beg, end); // done!
+	std::istream_iterator<std::string> beg(buf), end;
+	std::vector<std::string> tokens(beg, end); // done!
 	for(int i=0; i<1024; i++)
 		std::cout<<tokens[i]<<" ";
 	std::cout<<std::endl;
 	return 0;
 }
-
 int main(){
 	randDebugArray = (float*)malloc(AGENT_NO*strip*sizeof(float));
 	int start = GetTickCount();
