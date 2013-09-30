@@ -84,6 +84,14 @@ public:
 		this->STARVE_LIMIT = CONSTANT::PREY_STARVE_LIMIT;
 		this->DEFAULT_SPEED = 0.7;
 	}
+	__device__ PreyBoid(PreyBoid *ag){
+		this->loc = ag->loc;
+		this->btype = ag->btype;
+		this->HUNGER_LIMIT = ag->HUNGER_LIMIT;
+		this->starveCount = ag->starveCount;
+		this->DEFAULT_SPEED = ag->DEFAULT_SPEED;
+		this->dummy = ag;
+	}
 	__device__ bool hungry();
 	__device__ void eat(FoodBoid *food);
 	__device__ bool starved();
@@ -266,10 +274,10 @@ __device__ float2d_t PreyBoid::searchFood(){return float2d_t(0,0);}
 __device__ float2d_t PreyBoid::conformSpeed(){return float2d_t(0,0);}
 __device__ float2d_t PreyBoid::searchMate(){return float2d_t(0,0);}
 __device__ float2d_t PreyBoid::randomness(GRandomGen *gen){return float2d_t(0,0);}
-
 __device__ float *randDebug;
 #define STRIP 4
 __device__ void PreyBoid::step(GModel *model){
+	const int idx = threadIdx.x + blockIdx.x * blockDim.x;
 	iterInfo info;
 	Continuous2D *w = model->getWorld();
 	NextNeighborControl nnc = w->nextNeighborInit(this, 200, info);
@@ -279,17 +287,18 @@ __device__ void PreyBoid::step(GModel *model){
 	info.ptr = 0;
 	//float xrand = model->rgen->nextFloat();
 	//float yrand = model->rgen->nextFloat();
-	//loc.x += (xrand-1)*info.count;
-	//loc.y += (yrand-1)*info.count;
-	//if(loc.x < 0)
-	//	loc.x += BOARDER_R;
-	//if(loc.y < 0)
-	//	loc.y += BOARDER_D;
-	//const int idx = threadIdx.x + blockIdx.x * blockDim.x;
-	//randDebug[STRIP*idx] = xrand;
-	//randDebug[STRIP*idx+1] = yrand;
-	//randDebug[STRIP*idx+2] = loc.x;
-	//randDebug[STRIP*idx+3] = loc.y;
+	float xrand = randDebug[STRIP*idx];
+	float yrand = randDebug[STRIP*idx+1];
+	this->dummy->loc.x += (xrand-1)*info.count;
+	this->dummy->loc.y += (yrand-1)*info.count;
+	if(this->dummy->loc.x < 0)
+		this->dummy->loc.x += BOARDER_R;
+	if(this->dummy->loc.y < 0)
+		this->dummy->loc.y += BOARDER_D;
+	randDebug[STRIP*idx] = xrand;
+	randDebug[STRIP*idx+1] = yrand;
+	randDebug[STRIP*idx+2] = this->dummy->loc.x;
+	randDebug[STRIP*idx+3] = this->dummy->loc.y;
 }
 
 //PredatorBoid
