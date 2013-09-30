@@ -52,11 +52,14 @@ namespace c2dUtil{
 	void gen_cellIdx_kernel(int *hash, Continuous2D *c2d);
 	void queryNeighbor(Continuous2D *c2d);
 	void genNeighbor(GModel *model);
+	__global__ void swapAgentsInWorld(GModel *gm);
 };
 namespace schUtil{
 	void sortWithKey(GModel *model);
 	__global__ void scheduleRepeatingAllAgents(GModel *gm);
+	__global__ void swapAgentsInScheduler(GModel *gm);
 	__global__ void step(GModel *gm);
+
 }
 namespace rgenUtil{
 	__global__ void initStates(GRandomGen *rgen, int seed);
@@ -69,16 +72,33 @@ public:
 	virtual __device__ void step(GModel *model) = 0;
 };
 class GAgent : public GSteppable{
-private:
+protected:
 	GAgent *dummy;
+private:
 	int ag_id;
 public:
 	float2d_t loc;
 	__device__ GAgent(){
 		this->ag_id = threadIdx.x + blockIdx.x * blockDim.x;
 	}
+	__device__ GAgent(float2d_t loc){
+		this->ag_id = threadIdx.x + blockIdx.x * blockDim.x;
+		this->loc = loc;
+	}
+	__device__ GAgent(float x, float y){
+		this->ag_id = threadIdx.x + blockIdx.x * blockDim.x;
+		this->loc.x = x;
+		this->loc.y = y;
+	}
+	__device__ GAgent(GAgent *ag){ //prepared for creating the dummy;
+		this->ag_id = ag->ag_id;
+		this->loc = ag->loc;
+		this->dummy = ag;
+	}
 	__device__ void allocOnDevice();
 	__device__ int getAgId() const;
+	__device__ void setDummy(GAgent *dummy);
+	__device__ GAgent* getDummy() const;
 	__device__ virtual void step(GModel *model) = 0;
 };
 class GIterativeAgent : public GAgent{
@@ -99,24 +119,28 @@ class Continuous2D{
 private:
 	GAgent **allAgents;
 	int *neighborIdx, *cellIdx;
-	__device__ NextNeighborControl nextNeighborPrimitive(iterInfo &info);
+	__device__ NextNeighborControl nextNeighborPrimitive(iterInfo &info) const;
 public:
 	void allocOnDevice();
 	void allocOnHost();
-	__device__ float tdx(float ax, float bx);
-	__device__ float tdy(float ay, float by);
-	__device__ float tds(float2d_t aloc, float2d_t bloc);
-	__device__ bool add(GAgent *ag);
+	//agent list manipulation
+	__device__ bool add(GAgent *ag, int idx);
 	__device__ bool remove(GAgent *ag);
-	__device__ GAgent* obtainAgentPerThread();
-	__device__ NextNeighborControl nextNeighborInit(const GAgent* ag, const float range, iterInfo &info);
-	__device__ NextNeighborControl nextNeighbor(iterInfo &info);
-
+	__device__ void swap();
+	__device__ GAgent* obtainAgentPerThread() const;
+	//distance utility
+	__device__ float tdx(float ax, float bx) const;
+	__device__ float tdy(float ay, float by) const;
+	__device__ float tds(float2d_t aloc, float2d_t bloc) const;
+	//Neighbors related
+	__device__ NextNeighborControl nextNeighborInit(const GAgent* ag, const float range, iterInfo &info) const;
+	__device__ NextNeighborControl nextNeighbor(iterInfo &info) const;
+	//__global__ functions
 	friend void c2dUtil::gen_hash_kernel(int *hash, Continuous2D *c2d);
 	friend void c2dUtil::gen_cellIdx_kernel(int *hash, Continuous2D *c2d);
 	friend void c2dUtil::genNeighbor(GModel *model);
 	friend void c2dUtil::queryNeighbor(Continuous2D *c2d);
-	friend class GModel;
+	//friend class GModel;
 };
 class GScheduler{
 private:
@@ -128,11 +152,13 @@ public:
 		GAgent *ag);
 	__device__ bool scheduleRepeating(const float time, const int rank, 
 		GAgent *ag, const float interval);
-	__device__ GAgent* obtainAgentPerThread();
+	__device__ GAgent* obtainAgentPerThread() const;
+	__device__ bool add(GAgent* ag, int idx);
+	__device__ bool swap();
 	void allocOnHost();
 	void allocOnDevice();
 	friend void schUtil::sortWithKey(GModel *model);
-	friend class GModel;
+	//friend class GModel;
 };
 class GRandomGen{
 public:
@@ -152,8 +178,8 @@ public:
 	GRandomGen *rgen, *rgenH;
 	void allocOnHost();
 	void allocOnDevice();
-	__device__ Continuous2D* getWorld();
-	__device__ GScheduler* getScheduler();
+	__device__ Continuous2D* getWorld() const;
+	__device__ GScheduler* getScheduler() const;
 	//__device__ GRandomGen* getGRandomGen();
 	__device__ void addToWorld(GAgent *ag, int idx);
 	__device__ void addToScheduler(GAgent *ag, int idx);
@@ -191,24 +217,36 @@ void Continuous2D::allocOnHost(){
 	neighborIdx = (int*)malloc(sizeAgArray);
 	cellIdx = (int*)malloc(sizeCellArray);
 }
-__device__ float Continuous2D::tdx(float ax, float bx){return 0;}
-__device__ float Continuous2D::tdy(float ay, float by){return 0;}
-__device__ float Continuous2D::tds(const float2d_t loc1, const float2d_t loc2){
-	float dx = loc1.x - loc2.x;
-	float dy = loc1.y - loc2.y;
-	return sqrt(dx*dx + dy*dy);
+__device__ bool Continuous2D::add(GAgent *ag, int idx) {
+	if(idx>=AGENT_NO_D)
+		return false;
+	this->allAgents[idx]=ag;
+	return true;
 }
-__device__ bool Continuous2D::add(GAgent *ag){return true;}
 __device__ bool Continuous2D::remove(GAgent *ag){return true;}
-__device__ GAgent* Continuous2D::obtainAgentPerThread(){
+__device__ void Continuous2D::swap(){
+	const int idx = threadIdx.x + blockIdx.x * blockDim.x;
+	if (idx<AGENT_NO_D){
+		GAgent *ag = this->allAgents[idx];
+		this->allAgents[idx] = ag->getDummy();
+	}
+}
+__device__ GAgent* Continuous2D::obtainAgentPerThread() const {
 	const int idx = threadIdx.x + blockIdx.x * blockDim.x;
 	if (idx < AGENT_NO_D)
 		return this->allAgents[idx];
 	else
 		return NULL;
 }
+__device__ float Continuous2D::tdx(float ax, float bx) const {return 0;}
+__device__ float Continuous2D::tdy(float ay, float by) const {return 0;}
+__device__ float Continuous2D::tds(const float2d_t loc1, const float2d_t loc2) const {
+	float dx = loc1.x - loc2.x;
+	float dy = loc1.y - loc2.y;
+	return sqrt(dx*dx + dy*dy);
+}
 __device__ NextNeighborControl Continuous2D::nextNeighborInit(const GAgent* ag, 
-		const float range, iterInfo &info){
+		const float range, iterInfo &info) const {
 	float2d_t pos = ag->loc;
 	info.agent = ag;
 	info.ptr = -1;
@@ -234,7 +272,7 @@ __device__ NextNeighborControl Continuous2D::nextNeighborInit(const GAgent* ag,
 	} else
 		return this->nextNeighbor(info);
 }
-__device__ NextNeighborControl Continuous2D::nextNeighborPrimitive(iterInfo &info){
+__device__ NextNeighborControl Continuous2D::nextNeighborPrimitive(iterInfo &info) const {
 	info.ptr++;
 
 	if (info.ptr >= info.boarder) {
@@ -256,7 +294,7 @@ __device__ NextNeighborControl Continuous2D::nextNeighborPrimitive(iterInfo &inf
 	//info.print();
 	return CONTINUE;
 }
-__device__ NextNeighborControl Continuous2D::nextNeighbor(iterInfo &info){
+__device__ NextNeighborControl Continuous2D::nextNeighbor(iterInfo &info) const {
 	NextNeighborControl nnc = this->nextNeighborPrimitive(info);
 	GAgent *other;
 	float ds;
@@ -271,6 +309,7 @@ __device__ NextNeighborControl Continuous2D::nextNeighbor(iterInfo &info){
 	}
 	return nnc;
 }
+
 //GAgent
 __device__ int	GAgent::getAgId() const {
 	return this->ag_id;
@@ -278,6 +317,13 @@ __device__ int	GAgent::getAgId() const {
 __device__ void GAgent::allocOnDevice(){
 	ag_id = threadIdx.x + blockIdx.x * blockDim.x;
 }
+__device__ void GAgent::setDummy(GAgent* dummy){
+	this->dummy = dummy;
+}
+__device__ GAgent* GAgent::getDummy() const {
+	return this->dummy;
+}
+
 //GIterativeAgent
 __device__ void GIterativeAgent::step(GModel *model){
 	this->time += this->interval;
@@ -303,12 +349,25 @@ __device__ bool GScheduler::scheduleRepeating(const float time, const int rank, 
 	}
 	return true;
 }
-__device__ GAgent* GScheduler::obtainAgentPerThread(){
+__device__ GAgent* GScheduler::obtainAgentPerThread() const {
 	const int idx = threadIdx.x + blockIdx.x * blockDim.x;
 	if (idx < AGENT_NO_D)
 		return this->allAgents[idx];
 	else
 		return NULL;
+}
+__device__ bool GScheduler::add(GAgent *ag, int idx){
+	if(idx>=AGENT_NO_D)
+		return false;
+	this->allAgents[idx] = ag;
+	return true;
+}
+__device__ bool GScheduler::swap(){
+	const int idx = threadIdx.x + blockIdx.x * blockDim.x;
+	if (idx<AGENT_NO_D){
+		GAgent *ag = this->allAgents[idx];
+		this->allAgents[idx] = ag->getDummy();
+	}
 }
 void GScheduler::allocOnHost(){
 }
@@ -346,17 +405,17 @@ void GModel::allocOnHost(){
 	this->scheduler = new GScheduler();
 	this->scheduler->allocOnHost();
 }
-__device__ Continuous2D* GModel::getWorld(){
+__device__ Continuous2D* GModel::getWorld() const {
 	return this->world;
 }
-__device__ GScheduler* GModel::getScheduler(){
+__device__ GScheduler* GModel::getScheduler() const {
 	return this->scheduler;
 }
 __device__ void GModel::addToWorld(GAgent *ag, int idx){
-	this->world->allAgents[idx] = ag;
+	this->world->add(ag, idx);
 }
 __device__ void GModel::addToScheduler(GAgent *ag, int idx){
-	this->scheduler->allAgents[idx] = ag;
+	this->scheduler->add(ag, idx);
 }
 
 //GRandomGen
@@ -468,6 +527,9 @@ void c2dUtil::genNeighbor(GModel *model)
 	cudaFree(hash);
 	cudaCheckErrors("genNeighbor:cudaFree:hash");
 }
+__global__ void c2dUtil::swapAgentsInWorld(GModel *model){
+	model->getWorld()->swap();
+}
 
 //namespace Scheduler Utility
 struct SchdulerComp : public thrust::binary_function<GAgent, GAgent, bool> {
@@ -495,6 +557,9 @@ __global__ void schUtil::scheduleRepeatingAllAgents(GModel *gm){
 	if (ag != NULL){
 		sch->scheduleRepeating(0,0,ag,1);
 	}
+}
+__global__ void schUtil::swapAgentsInScheduler(GModel *model) {
+	model->getScheduler()->swap();
 }
 __global__ void schUtil::step(GModel *gm){
 	GScheduler *sch = gm->getScheduler();

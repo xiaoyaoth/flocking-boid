@@ -1,6 +1,10 @@
 #include "gsimcore.cuh"
 #include "gsimapp_boid.cuh"
 #include <fstream>
+#include <iostream>
+#include <string>
+#include <sstream>
+#include <iterator>
 
 __global__ void seeAllAgents(GModel *gm){
 	GAgent *ag = gm->getScheduler()->obtainAgentPerThread();
@@ -39,14 +43,20 @@ __global__ void addAgentsOnDevice(GModel *gm, float *x_pos, float *y_pos){
 	const int idx = threadIdx.x + blockIdx.x * blockDim.x;
 	if (idx < AGENT_NO_D){
 		PreyBoid *ag = new PreyBoid();
-		//GAgent *ag = new GAgent();
 		ag->loc.x = x_pos[idx];
 		ag->loc.y = y_pos[idx];
 		ag->time = 0;
 		ag->rank = 0;
+		PreyBoid *dummy = new PreyBoid(ag);
+		ag->setDummy(dummy);
 		gm->addToScheduler(ag, idx);
 		gm->addToWorld(ag, idx);
 	}
+}
+
+__global__ void swapDummy(GModel *gm){
+	const int idx = threadIdx.x + blockIdx.x * blockDim.x;
+	
 }
 
 void test1(){
@@ -141,6 +151,35 @@ void readConfig(){
 	fin.close();
 }
 
+void readRandDebug(float *devRandDebug, std::string str1, std::string str2){
+	int gSize = GRID_SIZE;
+	float *hostRandDebug = (float*)malloc(STRIP*gSize*BLOCK_SIZE*sizeof(float));
+
+	std::istringstream buf1(str1);
+	std::istringstream buf2(str2);
+	std::istream_iterator<std::string> begin1(buf1), end1;
+	std::istream_iterator<std::string> begin2(buf2), end2;
+	std::vector<std::string> tokens1(begin1, end1); // done!
+	std::vector<std::string> tokens2(begin2, end2); // done!
+
+	for (int i=0; i<AGENT_NO; i++){
+		float rand1 = atof(tokens1[i].c_str());
+		float rand2 = atof(tokens2[i].c_str());
+		hostRandDebug[STRIP*i] = rand1;
+		hostRandDebug[STRIP*i+1] = rand2;
+	}
+	cudaMemcpy(devRandDebug, hostRandDebug, 
+		STRIP*gSize*BLOCK_SIZE*sizeof(float), cudaMemcpyHostToDevice);
+	cudaMemcpyToSymbol(randDebug, &devRandDebug, sizeof(devRandDebug),
+		0, cudaMemcpyHostToDevice);
+	
+	free(hostRandDebug);
+	buf1.clear();
+	buf2.clear();
+	tokens1.clear();
+	tokens2.clear();
+}
+
 int main(int argc, char *argv[]){
 	readConfig();
 
@@ -165,9 +204,22 @@ int main(int argc, char *argv[]){
 	cudaCheckErrors("before going into the big loop");
 	printf("steps: %d\n", STEPS);
 
+	std::ifstream fin("randDebugOut2.txt");
+	std::string str1;
+	std::string str2;
+	float *devRandDebug;
+	cudaMalloc((void**)&devRandDebug, STRIP*gSize*BLOCK_SIZE*sizeof(float));
+
 	for (int i=0; i<STEPS; i++){
+		std::getline(fin, str1);
+		std::getline(fin, str2);
+		readRandDebug(devRandDebug, str1, str2);
+
 		c2dUtil::genNeighbor(model);
 		schUtil::step<<<gSize, BLOCK_SIZE>>>(model);
+
+		c2dUtil::swapAgentsInWorld<<<gSize, BLOCK_SIZE>>>(model);
+		schUtil::swapAgentsInScheduler<<<gSize, BLOCK_SIZE>>>(model);
 	}
 	cudaCheckErrors("finished");
 	system("PAUSE");

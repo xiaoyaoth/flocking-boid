@@ -39,6 +39,22 @@ public:
 		this->ag_id = agIdCount;
 		agIdCount++;
 	}
+	GAgent(float2d_t loc){
+		this->ag_id = agIdCount;
+		this->loc = loc;
+		agIdCount++;
+	}
+	GAgent(float x, float y){
+		this->ag_id = agIdCount;
+		this->loc.x = x;
+		this->loc.y = y;
+		agIdCount++;
+	}
+	GAgent(GAgent *ag){ //prepared for creating the dummy;
+		this->ag_id = ag->ag_id;
+		this->loc = ag->loc;
+		this->dummy = ag;
+	}
 	void step(GModel *model);
 };
 class Continuous2D{
@@ -274,7 +290,7 @@ void genNeighbor(Continuous2D *c2d){
 }
 
 float *randDebugArray;
-int strip = 1;
+int strip = 2;
 void queryNeighbor(Continuous2D *c2d, std::string str1, std::string str2){
 	std::istringstream buf1(str1);
 	std::istringstream buf2(str2);
@@ -291,19 +307,27 @@ void queryNeighbor(Continuous2D *c2d, std::string str1, std::string str2){
 		while(nnc != STOP){
 			nnc = c2d->nextNeighbor(info);
 		}
-		std::cout<<info.count<<" ";
-		//float rand1 = atof(tokens1[i].c_str());
-		//float rand2 = atof(tokens2[i].c_str());
-		//ag->loc.x += (rand1-1) * info.count;
-		//ag->loc.y += (rand2-1) * info.count;
-		//if(ag->loc.x < 0)
-		//	ag->loc.x += BOARDER_R;
-		//if(ag->loc.y < 0)
-		//	ag->loc.y += BOARDER_D;
+		//std::cout<<info.count<<" ";
+		float rand1 = atof(tokens1[i].c_str());
+		float rand2 = atof(tokens2[i].c_str());
+		ag->dummy->loc.x += (rand1-1) * info.count;
+		ag->dummy->loc.y += (rand2-1) * info.count;
+		if(ag->dummy->loc.x < 0)
+			ag->dummy->loc.x += BOARDER_R;
+		if(ag->dummy->loc.y < 0)
+			ag->dummy->loc.y += BOARDER_D;
 		randDebugArray[i*strip] = info.count;
-		//randDebugArray[i*strip+1] = ag->loc.y;
+		randDebugArray[i*strip+1] = ag->loc.y;
 	}
 	//std::cout<<std::endl;
+}
+void swapDummy(Continuous2D *world){
+	for(int i=0; i<AGENT_NO; i++){
+		GAgent *ag = world->allAgents[i];
+		GAgent *dummy = ag->dummy;
+		world->allAgents[i] = dummy;
+		dummy->dummy = ag;
+	}
 }
 void test2() {
 	GModel *model = new GModel();
@@ -313,9 +337,9 @@ void test2() {
 	y_pos_h = (float*)malloc(AGENT_NO*sizeof(float));
 	init(x_pos_h, y_pos_h);
 	for(int i = 0; i<AGENT_NO; i++){
-		GAgent *ag = new GAgent();
-		ag->loc.x = x_pos_h[i];
-		ag->loc.y = y_pos_h[i];
+		GAgent *ag = new GAgent(x_pos_h[i], y_pos_h[i]);
+		GAgent *dummy = new GAgent(ag);
+		ag->dummy = dummy;
 		model->world->allAgents[i] = ag;
 	}
 
@@ -328,11 +352,12 @@ void test2() {
 #else
 	randDebugOut3.open("randDebugOut4.txt", std::ios::out);
 #endif
-	for(int i=0; i<1; i++){
+	for(int i=0; i<3; i++){
 		genNeighbor(model->world);
 		std::getline(fin, str1);
 		std::getline(fin, str2);
 		queryNeighbor(model->world, str1, str2);
+		swapDummy(model->world);
 		for(int j=0; j<AGENT_NO; j++){
 			randDebugOut3
 				<<randDebugArray[strip*j]<<"\t"
