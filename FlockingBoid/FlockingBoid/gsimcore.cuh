@@ -117,6 +117,9 @@ public:
 };
 class Continuous2D{
 private:
+	float width;
+	float height;
+	float discretization;
 	GAgent **allAgents;
 	int *neighborIdx, *cellIdx;
 	__device__ NextNeighborControl nextNeighborPrimitive(iterInfo &info) const;
@@ -128,7 +131,11 @@ public:
 	__device__ bool remove(GAgent *ag);
 	__device__ void swap();
 	__device__ GAgent* obtainAgentPerThread() const;
+	__device__ GAgent* obtainAgent(const int agIdx) const;
+	__device__ GAgent* obtainAgentFromNeighborIdx(const int ptr) const;
 	//distance utility
+	__device__ float stx(float x) const;
+	__device__ float sty(float y) const;
 	__device__ float tdx(float ax, float bx) const;
 	__device__ float tdy(float ay, float by) const;
 	__device__ float tds(float2d_t aloc, float2d_t bloc) const;
@@ -238,8 +245,48 @@ __device__ GAgent* Continuous2D::obtainAgentPerThread() const {
 	else
 		return NULL;
 }
-__device__ float Continuous2D::tdx(float ax, float bx) const {return 0;}
-__device__ float Continuous2D::tdy(float ay, float by) const {return 0;}
+__device__ GAgent* Continuous2D::obtainAgent(int agIdx) const {
+	if (agIdx<AGENT_NO_D && agIdx>=0)
+		return this->allAgents[agIdx];
+	return NULL;
+}
+__device__ GAgent* Continuous2D::obtainAgentFromNeighborIdx(const int ptr) const{
+	if (ptr<AGENT_NO_D && ptr>=0){
+		const int agIdx = this->neighborIdx[ptr];
+		return this->allAgents[agIdx];
+	}
+	return NULL;
+}
+__device__ float Continuous2D::stx(const float x) const{
+	if (x >= 0){
+		if (x < this->width)
+			return x;
+		return x - this->width;
+	}
+	return x + this->width;
+}
+__device__ float Continuous2D::sty(const float y) const {
+	if (y >= 0) {
+		if (y < this->height)
+			return y;
+		return y - height;
+	}
+	return y + height;
+}
+__device__ float Continuous2D::tdx(float ax, float bx) const {
+	float dx = abs(ax-bx);
+	if (dx < BOARDER_R/2)
+		return dx;
+	else
+		return BOARDER_R-dx;
+}
+__device__ float Continuous2D::tdy(float ay, float by) const {
+	float dy = abs(ay-by);
+	if (dy < BOARDER_D/2)
+		return dy;
+	else
+		return BOARDER_D-dy;
+}
 __device__ float Continuous2D::tds(const float2d_t loc1, const float2d_t loc2) const {
 	float dx = loc1.x - loc2.x;
 	float dy = loc1.y - loc2.y;

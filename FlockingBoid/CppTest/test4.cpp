@@ -7,12 +7,14 @@
 #include <string>
 #include <sstream>
 #include <iterator>
+#include <iomanip>
 
 #define VERBOSE	 0
 #define SORTMETHOD 2
 
 class GModel;
 class GAgent;
+class Continuous2D;
 
 typedef struct iter_info_per_thread
 {
@@ -29,71 +31,221 @@ typedef struct iter_info_per_thread
 } iterInfo;
 enum NextNeighborControl{CONTINUE, STOP, FOUND};
 
+float *randDebugArray;
+const int STRIP = 2;
+
 class GAgent{
 public:
 	int ag_id;
 	float2d_t loc;
+	float2d_t lastd;
 	GAgent *dummy;
+	GModel *model;
+	bool dead;
+
 	static int agIdCount;
 	GAgent(){
-		this->ag_id = agIdCount;
-		agIdCount++;
+		GAgent(0, 0);
 	}
 	GAgent(float2d_t loc){
-		this->ag_id = agIdCount;
-		this->loc = loc;
-		agIdCount++;
+		GAgent(loc.x, loc.y);
 	}
 	GAgent(float x, float y){
 		this->ag_id = agIdCount;
 		this->loc.x = x;
 		this->loc.y = y;
+		this->dead = false;
 		agIdCount++;
 	}
 	GAgent(GAgent *ag){ //prepared for creating the dummy;
 		this->ag_id = ag->ag_id;
 		this->loc = ag->loc;
+		this->model = ag->model;
+		this->dead = ag->dead;
 		this->dummy = ag;
 	}
-	void step(GModel *model);
+	float2d_t momentum();
+	float2d_t randomness(int idx);
+	float2d_t consistency(const Continuous2D *world);
+	float2d_t cohesion(const Continuous2D *world);
+	float2d_t avoidance(const Continuous2D *world);
+	void step(const GModel *model);
+
 };
 class Continuous2D{
 public:
 	GAgent **allAgents;
 	int *neighborIdx, *cellIdx;
+	float width;
+	float height;
+	float discretization;
+
+	Continuous2D(float w, float h, float disc){
+		this->width = w;
+		this->height = h;
+		this->discretization = disc;
+	}
 	void allocOnDevice();
 	void allocOnHost();
-	NextNeighborControl nextNeighborInit(const GAgent* ag, const int range, iterInfo &info);
-	NextNeighborControl nextNeighbor(iterInfo &info);
-	NextNeighborControl nextNeighborPrimitive(iterInfo &info);
-	float tds(float2d_t loc1, float2d_t loc2){
-		float dx = loc1.x - loc2.x;
-		float dy = loc1.y - loc2.y;
-		return sqrt(dx*dx + dy*dy);
-	}
+	float tdx(float ax, float bx) const;
+	float tdy(float ay, float by) const;
+	float tds(float2d_t loc1, float2d_t loc2) const;
+	NextNeighborControl nextNeighborInit(const GAgent* ag, const int range, iterInfo &info) const;
+	NextNeighborControl nextNeighbor(iterInfo &info) const;
+	NextNeighborControl nextNeighborPrimitive(iterInfo &info) const;
+	float Continuous2D::stx(const float x) const;
+	float Continuous2D::sty(const float y) const;
+	
+	GAgent* obtainAgentFromNeighborIdx(const int ptr) const;
 };
 class GModel{
 public:
 	Continuous2D *world;
-#ifdef __CUDACC__
-	void allocOnDevice(){
-		Continuous2D *world_d = new Continuous2D();
-		world_d->allocOnDevice();
-		cudaMalloc((void**)&world, sizeof(Continuous2D));
-		cudaCheckErrors("GModel():cudaMalloc:world");
-		cudaMemcpy(world, world_d, sizeof(Continuous2D), cudaMemcpyHostToDevice);
-		cudaCheckErrors("GModel():cudaMemcpy:world");
+	float neighborhood;
+	float cohesion;
+	float avoidance;
+	float randomness;
+	float consistency;
+	float momentum;
+	float deadFlockerProbability;
+	float jump;
+
+	GModel(){
+		cohesion = 1.0;
+		avoidance = 1.0;
+		randomness = 1.0;
+		consistency = 1.0;
+		momentum = 1.0;
+		deadFlockerProbability = 0.1;
+		neighborhood = 150;
+		jump = 0.7;
 	}
-#endif
+
 	void allocOnHost(){
-		world = new Continuous2D();
+		world = new Continuous2D(BOARDER_R, BOARDER_D, this->neighborhood/1.5);
 		world->allocOnHost();
 	}
 };
 
 int GAgent::agIdCount = 0;
+float2d_t GAgent::momentum(){
+	return lastd;
+}
+float2d_t GAgent::randomness(int idx){
+	float x = randDebugArray[idx*STRIP];
+	float y = randDebugArray[idx*STRIP+1];
+	float l = sqrt(x*x + y*y);
+	return float2d_t(0.05*x/l, 0.05*y/l);
+}
+float2d_t GAgent::consistency(const Continuous2D *world){
+	float x = 0;
+	float y = 0;
+	int count = 0;
+	int agIdx = -1;
 
-NextNeighborControl Continuous2D::nextNeighborInit(const GAgent* ag, const int range, iterInfo &info){
+	iterInfo info;
+	NextNeighborControl nnc = world->nextNeighborInit(this, this->model->neighborhood, info);
+	while (nnc != STOP){
+		GAgent *other = (GAgent*)world->obtainAgentFromNeighborIdx(info.ptr);
+		if(!other->dead){
+			count++;
+			float2d_t m = other->momentum();
+			x += m.x;
+			y += m.y;
+		}
+		nnc = world->nextNeighbor(info);
+	}
+	if (count > 0){
+		x /= count;
+		y /= count;
+	}
+	return float2d_t(x,y);
+}
+float2d_t GAgent::cohesion(const Continuous2D *world){
+	float x = 0;
+	float y = 0;
+	int count = 0;
+	int agIdx = -1;
+
+	iterInfo info;
+	NextNeighborControl nnc = world->nextNeighborInit(this, this->model->neighborhood, info);
+	while (nnc != STOP){
+		GAgent *other = (GAgent*)world->obtainAgentFromNeighborIdx(info.ptr);
+		if (!other->dead){
+			count++;
+			x += world->tdx(this->loc.x, other->loc.x);
+			y += world->tdy(this->loc.y, other->loc.y);
+		}
+		nnc = world->nextNeighbor(info);
+	}
+	if (count > 0){
+		x /= count;
+		y /= count;
+	}
+	return float2d_t(-x/10,-y/10);
+}
+float2d_t GAgent::avoidance(const Continuous2D *world){
+	float x = 0;
+	float y = 0;
+	int count = 0;
+	int agIdx = -1;
+	iterInfo info;
+	NextNeighborControl nnc = world->nextNeighborInit(this, this->model->neighborhood, info);
+	while(nnc != STOP){
+		GAgent *other = (GAgent*)world->obtainAgentFromNeighborIdx(info.ptr);
+		if (!other->dead){
+			count++;
+			float dx = world->tdx(this->loc.x, other->loc.x);
+			float dy = world->tdy(this->loc.y, other->loc.y);
+			float sqrDist = dx*dx + dy*dy;
+			x += dx/(sqrDist*sqrDist + 1);
+			y += dy/(sqrDist*sqrDist + 1);
+		}
+		nnc = world->nextNeighbor(info);
+	}
+	if (count > 0){
+		x /= count;
+		y /= count;
+	}
+	return float2d_t(400*x, 400*y);
+}
+void GAgent::step(const GModel *model){
+	const GModel *boidModel = model;
+	if (this->dead)
+		return;
+	const Continuous2D *world = model->world;
+	float2d_t avoid = this->avoidance(world);
+	float2d_t cohes = this->cohesion(world);
+	float2d_t consi = this->consistency(world);
+	//float2d_t rdnes = this->randomness(model->rgen);
+	float2d_t momen = this->momentum();
+	float dx = 
+		cohes.x * boidModel->cohesion +
+		avoid.x * boidModel->avoidance +
+		consi.x * boidModel->consistency +
+		//rdnes.x * boidModel->randomness +
+		momen.x * boidModel->momentum;
+	float dy = 
+		cohes.y * boidModel->cohesion +
+		avoid.y * boidModel->avoidance +
+		consi.y * boidModel->consistency +
+		//rdnes.y * boidModel->randomness +
+		momen.y * boidModel->momentum;
+	float dist = sqrt(dx*dx + dy*dy);
+	if (dist > 0){
+		dx = dx / dist * boidModel->jump;
+		dy = dy / dist * boidModel->jump;
+	}
+	this->dummy->lastd = float2d_t(dx, dy);
+	this->dummy->loc = float2d_t(
+		world->stx(loc.x + dx),
+		world->sty(loc.y + dy)
+		);
+	randDebugArray[this->ag_id*STRIP] = dx;
+	randDebugArray[this->ag_id*STRIP+1] = dy;
+}
+
+NextNeighborControl Continuous2D::nextNeighborInit(const GAgent* ag, const int range, iterInfo &info) const {
 	float2d_t pos = ag->loc;
 	info.agent = ag;
 	info.ptr = -1;
@@ -122,7 +274,7 @@ NextNeighborControl Continuous2D::nextNeighborInit(const GAgent* ag, const int r
 	} else
 		return this->nextNeighbor(info);
 }
-NextNeighborControl Continuous2D::nextNeighborPrimitive(iterInfo &info){
+NextNeighborControl Continuous2D::nextNeighborPrimitive(iterInfo &info) const{
 	info.ptr++;
 
 	if (info.ptr >= info.boarder) {
@@ -146,7 +298,7 @@ NextNeighborControl Continuous2D::nextNeighborPrimitive(iterInfo &info){
 	//info.print();
 	return CONTINUE;
 }
-NextNeighborControl Continuous2D::nextNeighbor(iterInfo &info){
+NextNeighborControl Continuous2D::nextNeighbor(iterInfo &info)const {
 	NextNeighborControl nnc = this->nextNeighborPrimitive(info);
 	GAgent *other;
 	float ds;
@@ -163,30 +315,49 @@ NextNeighborControl Continuous2D::nextNeighbor(iterInfo &info){
 	}
 	return nnc;
 }
-
-#ifdef __CUDACC__
-void Continuous2D::allocOnDevice(){
-	size_t sizeAgArray = AGENT_NO*sizeof(int);
-	size_t sizeCellArray = CELL_NO*sizeof(int);
-
-	cudaMalloc((void**)&neighborIdx, sizeAgArray);
-	cudaCheckErrors("Continuous2D():cudaMalloc:neighborIdx");
-	cudaMalloc((void**)&cellIdx, sizeCellArray);
-	cudaCheckErrors("Continuous2D():cudaMalloc:cellIdx");
-
-
-	int *neighborIdx_h = (int*)malloc(sizeAgArray);
-	int *cellIdx_h = (int*)malloc(sizeCellArray);
-	for(int i=0; i<AGENT_NO; i++)
-		neighborIdx_h[i] = 2;
-	for(int i = 0; i<CELL_NO; i++)
-		cellIdx_h[i] = 3;
-	cudaMemcpy(this->neighborIdx, neighborIdx_h, sizeAgArray, cudaMemcpyHostToDevice);
-	cudaCheckErrors("Continuous2D():cudaMemcpy:neighborIdx");
-	cudaMemcpy(this->cellIdx, cellIdx_h, sizeCellArray, cudaMemcpyHostToDevice);
-	cudaCheckErrors("Continuous2D():cudaMemcpy:cellIdx");
+GAgent* Continuous2D::obtainAgentFromNeighborIdx(const int ptr) const{
+	if (ptr<AGENT_NO && ptr>=0){
+		const int agIdx = this->neighborIdx[ptr];
+		return this->allAgents[agIdx];
+	}
+	return NULL;
 }
-#endif
+float Continuous2D::stx(const float x) const{
+	if (x >= 0){
+		if (x < this->width)
+			return x;
+		return x - this->width;
+	}
+	return x + this->width;
+}
+float Continuous2D::sty(const float y) const {
+	if (y >= 0) {
+		if (y < this->height)
+			return y;
+		return y - height;
+	}
+	return y + height;
+}
+float Continuous2D::tdx(float ax, float bx) const {
+	float dx = abs(ax-bx);
+	if (dx < BOARDER_R/2)
+		return dx;
+	else
+		return BOARDER_R-dx;
+}
+float Continuous2D::tdy(float ay, float by) const {
+	float dy = abs(ay-by);
+	if (dy < BOARDER_D/2)
+		return dy;
+	else
+		return BOARDER_D-dy;
+}
+float Continuous2D::tds(float2d_t loc1, float2d_t loc2) const {
+		float dx = loc1.x - loc2.x;
+		float dy = loc1.y - loc2.y;
+		return sqrt(dx*dx + dy*dy);
+	}
+
 void Continuous2D::allocOnHost(){
 	size_t sizeAgArray = AGENT_NO*sizeof(int);
 	size_t sizeCellArray = CELL_NO*sizeof(int);
@@ -270,7 +441,6 @@ void sortHash2(int *hash, Continuous2D *c2d){
 			c2d->cellIdx[i+1]=count;
 	}
 }
-
 void sortHash(int *hash, Continuous2D *c2d){
 #if SORTMETHOD == 1
 	sortHash1(hash, c2d);
@@ -289,16 +459,7 @@ void genNeighbor(Continuous2D *c2d){
 #endif
 }
 
-float *randDebugArray;
-int strip = 2;
-void queryNeighbor(Continuous2D *c2d, std::string str1, std::string str2){
-	std::istringstream buf1(str1);
-	std::istringstream buf2(str2);
-	std::istream_iterator<std::string> begin1(buf1), end1;
-	std::istream_iterator<std::string> begin2(buf2), end2;
-	std::vector<std::string> tokens1(begin1, end1); // done!
-	std::vector<std::string> tokens2(begin2, end2); // done!
-
+void queryNeighbor(Continuous2D *c2d){
 	for(int i=0; i<AGENT_NO; i++){
 		GAgent *ag = c2d->allAgents[i];
 		iterInfo info;
@@ -308,28 +469,48 @@ void queryNeighbor(Continuous2D *c2d, std::string str1, std::string str2){
 			nnc = c2d->nextNeighbor(info);
 		}
 		//std::cout<<info.count<<" ";
-		float rand1 = atof(tokens1[i].c_str());
-		float rand2 = atof(tokens2[i].c_str());
+		float rand1 = randDebugArray[i*STRIP];
+		float rand2 = randDebugArray[i*STRIP+1];
 		ag->dummy->loc.x += (rand1-1) * info.count;
 		ag->dummy->loc.y += (rand2-1) * info.count;
 		if(ag->dummy->loc.x < 0)
 			ag->dummy->loc.x += BOARDER_R;
 		if(ag->dummy->loc.y < 0)
 			ag->dummy->loc.y += BOARDER_D;
-		randDebugArray[i*strip] = info.count;
-		randDebugArray[i*strip+1] = ag->loc.y;
+		randDebugArray[i*STRIP] = info.count;
+		randDebugArray[i*STRIP+1] = ag->dummy->loc.x;
+		randDebugArray[i*STRIP+2] = ag->dummy->loc.y;
 	}
 	//std::cout<<std::endl;
+}
+void stepAllAgents(const GModel *model){
+
+	for(int i=0; i<AGENT_NO; i++){
+		GAgent *ag = model->world->allAgents[i];
+		ag->step(model);
+	}
+}
+void initRandDebugArray(std::string str1, std::string str2){
+	std::istringstream buf1(str1);
+	std::istringstream buf2(str2);
+	std::istream_iterator<std::string> begin1(buf1), end1;
+	std::istream_iterator<std::string> begin2(buf2), end2;
+	std::vector<std::string> tokens1(begin1, end1); // done!
+	std::vector<std::string> tokens2(begin2, end2); // done!
+	for(int i=0; i<AGENT_NO; i++){
+		randDebugArray[i*STRIP] = atof(tokens1[i].c_str());
+		randDebugArray[i*STRIP+1] = atof(tokens2[i].c_str());
+	}
 }
 void swapDummy(Continuous2D *world){
 	for(int i=0; i<AGENT_NO; i++){
 		GAgent *ag = world->allAgents[i];
-		GAgent *dummy = ag->dummy;
-		world->allAgents[i] = dummy;
-		dummy->dummy = ag;
+		world->allAgents[i] = ag->dummy;
 	}
 }
 void test2() {
+	randDebugArray = (float*)malloc(AGENT_NO*STRIP*sizeof(float));
+
 	GModel *model = new GModel();
 	model->allocOnHost();
 	float *x_pos_h, *y_pos_h;
@@ -338,6 +519,7 @@ void test2() {
 	init(x_pos_h, y_pos_h);
 	for(int i = 0; i<AGENT_NO; i++){
 		GAgent *ag = new GAgent(x_pos_h[i], y_pos_h[i]);
+		ag->model = model;
 		GAgent *dummy = new GAgent(ag);
 		ag->dummy = dummy;
 		model->world->allAgents[i] = ag;
@@ -356,11 +538,16 @@ void test2() {
 		genNeighbor(model->world);
 		std::getline(fin, str1);
 		std::getline(fin, str2);
-		queryNeighbor(model->world, str1, str2);
+		initRandDebugArray(str1, str2);
+		//queryNeighbor(model->world);
+		stepAllAgents(model);
 		swapDummy(model->world);
 		for(int j=0; j<AGENT_NO; j++){
 			randDebugOut3
-				<<randDebugArray[strip*j]<<"\t"
+				<<std::setw(4)
+				<<j<<"\t"
+				<<randDebugArray[STRIP*j]<<"\t"
+				<<randDebugArray[STRIP*j+1]<<"\t"
 				<<std::endl;
 			randDebugOut3.flush();
 		}
@@ -370,20 +557,8 @@ void test2() {
 	randDebugOut3.close();
 	//std::cout<<std::endl;
 }
-int test3(){
-	std::ifstream fin("randDebugOut2.txt");
-	std::string str;
-	std::getline(fin, str);
-	std::istringstream buf(str);
-	std::istream_iterator<std::string> beg(buf), end;
-	std::vector<std::string> tokens(beg, end); // done!
-	for(int i=0; i<1024; i++)
-		std::cout<<tokens[i]<<" ";
-	std::cout<<std::endl;
-	return 0;
-}
+
 int main(){
-	randDebugArray = (float*)malloc(AGENT_NO*strip*sizeof(float));
 	int start = GetTickCount();
 	test2();
 	int end = GetTickCount();

@@ -61,7 +61,7 @@ typedef struct float_2d
 		this->x = 0;
 		this->y = 0;
 	}
-	__device__ __host__ float_2d(float xx, float yy){
+	__device__ __host__ float_2d(const float xx, const float yy){
 		this->x = xx;
 		this->y = yy;
 	}
