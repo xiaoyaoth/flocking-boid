@@ -16,6 +16,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "TestProject1", "TestProject1\TestProject1.vcxproj", "{8D3E9688-A168-4D4C-AB42-D9B8865AC3BD}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "VisualTest", "VisualTest\VisualTest.vcxproj", "{5B460773-3DF3-41C4-AC4B-726AEC85AEB7}"
+EndProject
 Global
 	GlobalSection(SubversionScc) = preSolution
 		Svn-Managed = True
@@ -45,6 +47,10 @@ Global
 		{8D3E9688-A168-4D4C-AB42-D9B8865AC3BD}.Debug|Win32.Build.0 = Debug|Win32
 		{8D3E9688-A168-4D4C-AB42-D9B8865AC3BD}.Release|Win32.ActiveCfg = Release|Win32
 		{8D3E9688-A168-4D4C-AB42-D9B8865AC3BD}.Release|Win32.Build.0 = Release|Win32
+		{5B460773-3DF3-41C4-AC4B-726AEC85AEB7}.Debug|Win32.ActiveCfg = Debug|Win32
+		{5B460773-3DF3-41C4-AC4B-726AEC85AEB7}.Debug|Win32.Build.0 = Debug|Win32
+		{5B460773-3DF3-41C4-AC4B-726AEC85AEB7}.Release|Win32.ActiveCfg = Release|Win32
+		{5B460773-3DF3-41C4-AC4B-726AEC85AEB7}.Release|Win32.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -6,7 +6,7 @@
 #include <sstream>
 #include <iterator>
 
-__global__ void seeAllAgents(GModel *gm){
+__global__ void seeAllAgents(BoidModel *gm){
 	GAgent *ag = gm->getScheduler()->obtainAgentPerThread();
 	if (ag != NULL)
 		ag->getAgId();
@@ -39,7 +39,7 @@ void initOnDevice(float *x_pos, float *y_pos){
 	cudaMemcpy(y_pos, y_pos_h, floatDataSize, cudaMemcpyHostToDevice);
 	cudaCheckErrors("initOnDevice");
 }
-__global__ void addAgentsOnDevice(GModel *gm, float *x_pos, float *y_pos){
+__global__ void addAgentsOnDevice(BoidModel *gm, float *x_pos, float *y_pos){
 	const int idx = threadIdx.x + blockIdx.x * blockDim.x;
 	if (idx < AGENT_NO_D){
 		PreyBoid *ag = new PreyBoid();
@@ -47,6 +47,7 @@ __global__ void addAgentsOnDevice(GModel *gm, float *x_pos, float *y_pos){
 		ag->loc.y = y_pos[idx];
 		ag->time = 0;
 		ag->rank = 0;
+		ag->model = gm;
 		PreyBoid *dummy = new PreyBoid(ag);
 		ag->setDummy(dummy);
 		gm->addToScheduler(ag, idx);
@@ -64,11 +65,11 @@ void test1(){
 	printf("sizeof(GModel*): %d\n", sizeof(GModel*));
 	printf("sizeof(void*):   %d\n", sizeof(void*));
 
-	GModel *model_h = new GModel();
+	BoidModel *model_h = new BoidModel();
 	model_h->allocOnDevice();
-	GModel *model;
-	cudaMalloc((void**)&model, sizeof(GModel));
-	cudaMemcpy(model, model_h, sizeof(GModel), cudaMemcpyHostToDevice);
+	BoidModel *model;
+	cudaMalloc((void**)&model, sizeof(BoidModel));
+	cudaMemcpy(model, model_h, sizeof(BoidModel), cudaMemcpyHostToDevice);
 	delete model_h;
 
 	float *x_pos, *y_pos;
@@ -184,11 +185,11 @@ int main(int argc, char *argv[]){
 	readConfig();
 
 	int gSize = GRID_SIZE;
-	GModel *model_h = new GModel();
+	BoidModel *model_h = new BoidModel();
 	model_h->allocOnDevice();
-	GModel *model;
-	cudaMalloc((void**)&model, sizeof(GModel));
-	cudaMemcpy(model, model_h, sizeof(GModel), cudaMemcpyHostToDevice);
+	BoidModel *model;
+	cudaMalloc((void**)&model, sizeof(BoidModel));
+	cudaMemcpy(model, model_h, sizeof(BoidModel), cudaMemcpyHostToDevice);
 
 	float *x_pos, *y_pos;
 	size_t floatDataSize = AGENT_NO*sizeof(float);
@@ -215,10 +216,10 @@ int main(int argc, char *argv[]){
 		std::getline(fin, str2);
 		readRandDebug(devRandDebug, str1, str2);
 
-		c2dUtil::genNeighbor(model);
+		c2dUtil::genNeighbor(model_h->world);
 		schUtil::step<<<gSize, BLOCK_SIZE>>>(model);
 
-		c2dUtil::swapAgentsInWorld<<<gSize, BLOCK_SIZE>>>(model);
+		c2dUtil::swapAgentsInWorld<<<gSize, BLOCK_SIZE>>>(model_h->world);
 		schUtil::swapAgentsInScheduler<<<gSize, BLOCK_SIZE>>>(model);
 	}
 	cudaCheckErrors("finished");
