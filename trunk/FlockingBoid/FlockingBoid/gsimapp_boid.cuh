@@ -6,10 +6,13 @@
 
 enum BoidType {PREY_BOID, PREDATOR_BOID, FOOD_BOID};
 enum BoidState{HUNGRY, NORMAL, FLEEING, STARVING, SEEKING_MATE};
+__device__ float *randDebug;
+#define STRIP 4
 
 class BoidModel : public GModel{
 public:
-	GRandomGen * rgen;
+	Continuous2D *world, *worldH;
+	GRandomGen *rgen, *rgenH;
 	float cohesion;
 	float avoidance;
 	float randomness;
@@ -18,6 +21,20 @@ public:
 	float deadFlockerProbability;
 	float neighborhood;
 	float jump;
+	BoidModel(){
+		cohesion = 1.0;
+		avoidance = 1.0;
+		randomness = 1.0;
+		consistency = 1.0;
+		momentum = 1.0;
+		deadFlockerProbability = 0.1;
+		neighborhood = 150;
+		jump = 0.7;
+	}
+	void allocOnDevice();
+	void allocOnHost();
+	__device__ Continuous2D* getWorld() const;
+	__device__ void addToWorld(GAgent *ag, int idx);
 };
 class BaseBoid : public GAgent {
 public:
@@ -32,6 +49,7 @@ public:
 		loc.x = 0;
 		loc.y = 0;
 		DEFAULT_SPEED = 0.7;
+		this->dead = false;
 	}
 	__device__ float getOrientation2D();
 	__device__ void  setOrientation2D(float val);
@@ -139,6 +157,39 @@ public:
 	__device__ float2d_t stray();
 	__device__ void step(GModel *model);
 };
+
+//BoidModel
+void BoidModel::allocOnDevice(){
+	//init scheduler
+	GModel::allocOnDevice();
+	//init Continuous2D
+	worldH = new Continuous2D(BOARDER_R, BOARDER_D, this->neighborhood/1.5);
+	worldH->allocOnDevice();
+	cudaMalloc((void**)&world, sizeof(Continuous2D));
+	cudaMemcpy(world, worldH, sizeof(Continuous2D), cudaMemcpyHostToDevice);
+	//init GRandomGen
+	rgenH = new GRandomGen();
+	rgenH->allocOnDevice();
+	cudaMalloc((void**)&rgen, sizeof(GRandomGen));
+	cudaMemcpy(rgen, rgenH, sizeof(GRandomGen), cudaMemcpyHostToDevice);
+	int gSize = GRID_SIZE;
+	//rgenUtil::initStates<<<gSize, BLOCK_SIZE>>>(rgen, 1234);
+	cudaCheckErrors("BoidModel()");
+}
+void BoidModel::allocOnHost(){
+	GModel::allocOnHost();
+
+	world = new Continuous2D(BOARDER_R, BOARDER_D, this->neighborhood/1.5);
+	world->allocOnHost();
+	this->scheduler = new GScheduler();
+	this->scheduler->allocOnHost();
+}
+__device__ Continuous2D* BoidModel::getWorld() const {
+	return this->world;
+}
+__device__ void BoidModel::addToWorld(GAgent *ag, int idx){
+	this->world->add(ag, idx);
+}
 
 //BaseBoid
 __device__ float BaseBoid::getOrientation2D(){
@@ -287,6 +338,7 @@ __device__ float2d_t PreyBoid::avoidance(const Continuous2D *world){
 			x += dx/(sqrDist*sqrDist + 1);
 			y += dy/(sqrDist*sqrDist + 1);
 		}
+		nnc = world->nextNeighbor(info);
 	}
 	if (count > 0){
 		x /= count;
@@ -298,8 +350,6 @@ __device__ float2d_t PreyBoid::avoidance(const Continuous2D *world){
 //__device__ float2d_t PreyBoid::searchFood(Continuous2D *world){return float2d_t(0,0);}
 //__device__ float2d_t PreyBoid::conformSpeed(Continuous2D *world){return float2d_t(0,0);}
 //__device__ float2d_t PreyBoid::searchMate(Continuous2D *world){return float2d_t(0,0);}
-__device__ float *randDebug;
-#define STRIP 4
 //__device__ void PreyBoidStep(GModel *model){
 //  const int idx = threadIdx.x + blockIdx.x * blockDim.x
 //	iterInfo info;
@@ -328,7 +378,7 @@ __device__ void PreyBoid::step(GModel *model){
 	const BoidModel *boidModel = (BoidModel*) model;
 	if (this->dead)
 		return;
-	const Continuous2D *world = model->getWorld();
+	const Continuous2D *world = boidModel->getWorld();
 	float2d_t avoid = this->avoidance(world);
 	float2d_t cohes = this->cohesion(world);
 	float2d_t consi = this->consistency(world);
@@ -351,11 +401,13 @@ __device__ void PreyBoid::step(GModel *model){
 		dx = dx / dist * boidModel->jump;
 		dy = dy / dist * boidModel->jump;
 	}
-	this->lastd = float2d_t(dx, dy);
-	this->dummy->loc = float2d_t(
+	BaseBoid *dummy = (BaseBoid*)this->dummy;
+	dummy->lastd = float2d_t(dx, dy);
+	dummy->loc = float2d_t(
 		world->stx(loc.x + dx),
 		world->sty(loc.y + dy)
 		);
+	printf("%f, %f\n", dummy->loc.x, dummy->loc.y);
 }
 
 //PredatorBoid
@@ -371,6 +423,5 @@ __device__ float2d_t PredatorBoid::huntByLockOnNearest(){return float2d_t(0,0);}
 __device__ float2d_t PredatorBoid::huntByLockOnRandom(){return float2d_t(0,0);}
 __device__ float2d_t PredatorBoid::stray(){return float2d_t(0,0);}
 __device__ void PredatorBoid::step(GModel *model){}
-
 
 #endif

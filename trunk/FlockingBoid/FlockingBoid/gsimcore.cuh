@@ -51,8 +51,8 @@ namespace c2dUtil{
 	void sort_hash_kernel(int *hash, int *neighborIdx);
 	void gen_cellIdx_kernel(int *hash, Continuous2D *c2d);
 	void queryNeighbor(Continuous2D *c2d);
-	void genNeighbor(GModel *model);
-	__global__ void swapAgentsInWorld(GModel *gm);
+	void genNeighbor(Continuous2D *world);
+	__global__ void swapAgentsInWorld(Continuous2D *world);
 };
 namespace schUtil{
 	void sortWithKey(GModel *model);
@@ -124,6 +124,11 @@ private:
 	int *neighborIdx, *cellIdx;
 	__device__ NextNeighborControl nextNeighborPrimitive(iterInfo &info) const;
 public:
+	Continuous2D(float w, float h, float disc){
+		this->width = w;
+		this->height = h;
+		this->discretization = disc;
+	}
 	void allocOnDevice();
 	void allocOnHost();
 	//agent list manipulation
@@ -145,7 +150,7 @@ public:
 	//__global__ functions
 	friend void c2dUtil::gen_hash_kernel(int *hash, Continuous2D *c2d);
 	friend void c2dUtil::gen_cellIdx_kernel(int *hash, Continuous2D *c2d);
-	friend void c2dUtil::genNeighbor(GModel *model);
+	friend void c2dUtil::genNeighbor(Continuous2D *world);
 	friend void c2dUtil::queryNeighbor(Continuous2D *c2d);
 	//friend class GModel;
 };
@@ -178,21 +183,15 @@ public:
 	friend void rgenUtil::initStates(GRandomGen *rgen, int seed);
 };
 class GModel{
-private:
-	Continuous2D *world, *worldH;
+protected:
 	GScheduler *scheduler, *schedulerH;
 public:
-	GRandomGen *rgen, *rgenH;
 	void allocOnHost();
 	void allocOnDevice();
-	__device__ Continuous2D* getWorld() const;
 	__device__ GScheduler* getScheduler() const;
-	//__device__ GRandomGen* getGRandomGen();
-	__device__ void addToWorld(GAgent *ag, int idx);
 	__device__ void addToScheduler(GAgent *ag, int idx);
 	__device__ void foo();
 	friend void schUtil::sortWithKey(GModel *model);
-	friend void c2dUtil::genNeighbor(GModel *model);
 };
 
 //Continuous2D
@@ -427,39 +426,17 @@ void GScheduler::allocOnDevice(){
 
 //GModel
 void GModel::allocOnDevice(){
-	worldH = new Continuous2D();
-	worldH->allocOnDevice();
-	cudaMalloc((void**)&world, sizeof(Continuous2D));
-	cudaMemcpy(world, worldH, sizeof(Continuous2D), cudaMemcpyHostToDevice);
-
 	schedulerH = new GScheduler();
 	schedulerH->allocOnDevice();
 	cudaMalloc((void**)&scheduler, sizeof(GScheduler));
 	cudaMemcpy(scheduler, schedulerH, sizeof(GScheduler), cudaMemcpyHostToDevice);
-
-	rgenH = new GRandomGen();
-	rgenH->allocOnDevice();
-	cudaMalloc((void**)&rgen, sizeof(GRandomGen));
-	cudaMemcpy(rgen, rgenH, sizeof(GRandomGen), cudaMemcpyHostToDevice);
-	int gSize = GRID_SIZE;
-	//rgenUtil::initStates<<<gSize, BLOCK_SIZE>>>(rgen, 1234);
-
 	cudaCheckErrors("GModel()");
 }
 void GModel::allocOnHost(){
-	world = new Continuous2D();
-	world->allocOnHost();
-	this->scheduler = new GScheduler();
-	this->scheduler->allocOnHost();
-}
-__device__ Continuous2D* GModel::getWorld() const {
-	return this->world;
+
 }
 __device__ GScheduler* GModel::getScheduler() const {
 	return this->scheduler;
-}
-__device__ void GModel::addToWorld(GAgent *ag, int idx){
-	this->world->add(ag, idx);
 }
 __device__ void GModel::addToScheduler(GAgent *ag, int idx){
 	this->scheduler->add(ag, idx);
@@ -523,38 +500,34 @@ void c2dUtil::sort_hash_kernel(int *hash, int *neighborIdx)
 	Iter val_begin(id_ptr);
 	thrust::sort_by_key(key_begin, key_end, val_begin);
 }
-void c2dUtil::genNeighbor(GModel *model)
+void c2dUtil::genNeighbor(Continuous2D *world)
 {
 	int bSize = BLOCK_SIZE;
 	int gSize = GRID_SIZE;
 	if (AGENT_NO%bSize != 0)
 		gSize++;
 
-	GModel *model_h = new GModel();
-	cudaMemcpy(model_h, model, sizeof(GModel), cudaMemcpyDeviceToHost);
-	printf("sizeof(GModel): %d\n", sizeof(GModel));
-	cudaCheckErrors("genNeighbor:cudaMemcpy:model_h");
-	Continuous2D *c2d_h = new Continuous2D();
-	cudaMemcpy(c2d_h, model_h->world, sizeof(Continuous2D), cudaMemcpyDeviceToHost);
-	cudaCheckErrors("genNeighbor:cudaMemcpy:c2d_h");
+	Continuous2D *world_h = new Continuous2D(0,0,0);
+	cudaMemcpy(world_h, world, sizeof(Continuous2D), cudaMemcpyDeviceToHost);
+	cudaCheckErrors("genNeighbor:cudaMemcpy:world_h");
 
 	int *hash;
 	cudaMalloc((void**)&hash, AGENT_NO*sizeof(int));
 	cudaCheckErrors("genNeighbor:cudaMalloc:hash");
-	gen_hash_kernel<<<gSize, bSize>>>(hash, model_h->world);
-	sort_hash_kernel(hash, c2d_h->neighborIdx);
-	gen_cellIdx_kernel<<<gSize, bSize>>>(hash, model_h->world);
+	gen_hash_kernel<<<gSize, bSize>>>(hash, world);
+	sort_hash_kernel(hash, world_h->neighborIdx);
+	gen_cellIdx_kernel<<<gSize, bSize>>>(hash, world);
 
 	//debug
 	//int *id_h, *hash_h, *cidx_h;
 	//id_h = new int[AGENT_NO];
 	//hash_h = new int[AGENT_NO];
 	//cidx_h = new int[CELL_NO];
-	//cudaMemcpy(id_h, c2d_h->neighborIdx, AGENT_NO * sizeof(int), cudaMemcpyDeviceToHost);
+	//cudaMemcpy(id_h, world_h->neighborIdx, AGENT_NO * sizeof(int), cudaMemcpyDeviceToHost);
 	//cudaCheckErrors("genNeighbor:cudaMemcpy(id_h");
 	//cudaMemcpy(hash_h, hash, AGENT_NO * sizeof(int), cudaMemcpyDeviceToHost);
 	//cudaCheckErrors("genNeighbor:cudaMemcpy(hash_h");
-	//cudaMemcpy(cidx_h, c2d_h->cellIdx, CELL_NO * sizeof(int), cudaMemcpyDeviceToHost);
+	//cudaMemcpy(cidx_h, world_h->cellIdx, CELL_NO * sizeof(int), cudaMemcpyDeviceToHost);
 	//cudaCheckErrors("genNeighbor:cudaMemcpy(cidx_h");
 	//std::fstream fout;
 	//char *outfname = new char[10];
@@ -574,8 +547,8 @@ void c2dUtil::genNeighbor(GModel *model)
 	cudaFree(hash);
 	cudaCheckErrors("genNeighbor:cudaFree:hash");
 }
-__global__ void c2dUtil::swapAgentsInWorld(GModel *model){
-	model->getWorld()->swap();
+__global__ void c2dUtil::swapAgentsInWorld(Continuous2D *world){
+	world->swap();
 }
 
 //namespace Scheduler Utility

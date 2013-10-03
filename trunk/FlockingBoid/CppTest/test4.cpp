@@ -32,7 +32,7 @@ typedef struct iter_info_per_thread
 enum NextNeighborControl{CONTINUE, STOP, FOUND};
 
 float *randDebugArray;
-const int STRIP = 2;
+const int STRIP = 5;
 
 class GAgent{
 public:
@@ -159,6 +159,7 @@ float2d_t GAgent::consistency(const Continuous2D *world){
 		x /= count;
 		y /= count;
 	}
+	randDebugArray[STRIP*this->ag_id+2] = info.count;
 	return float2d_t(x,y);
 }
 float2d_t GAgent::cohesion(const Continuous2D *world){
@@ -182,6 +183,7 @@ float2d_t GAgent::cohesion(const Continuous2D *world){
 		x /= count;
 		y /= count;
 	}
+	randDebugArray[STRIP*this->ag_id+3] = info.count;
 	return float2d_t(-x/10,-y/10);
 }
 float2d_t GAgent::avoidance(const Continuous2D *world){
@@ -207,6 +209,7 @@ float2d_t GAgent::avoidance(const Continuous2D *world){
 		x /= count;
 		y /= count;
 	}
+	randDebugArray[STRIP*this->ag_id+4] = info.count;
 	return float2d_t(400*x, 400*y);
 }
 void GAgent::step(const GModel *model){
@@ -233,16 +236,16 @@ void GAgent::step(const GModel *model){
 		momen.y * boidModel->momentum;
 	float dist = sqrt(dx*dx + dy*dy);
 	if (dist > 0){
-		dx = dx / dist * boidModel->jump;
-		dy = dy / dist * boidModel->jump;
+		dx = 10* dx / dist * boidModel->jump;
+		dy = 10* dy / dist * boidModel->jump;
 	}
 	this->dummy->lastd = float2d_t(dx, dy);
 	this->dummy->loc = float2d_t(
 		world->stx(loc.x + dx),
 		world->sty(loc.y + dy)
 		);
-	randDebugArray[this->ag_id*STRIP] = dx;
-	randDebugArray[this->ag_id*STRIP+1] = dy;
+	randDebugArray[this->ag_id*STRIP] = this->dummy->loc.x;
+	randDebugArray[this->ag_id*STRIP+1] = this->dummy->loc.y;
 }
 
 NextNeighborControl Continuous2D::nextNeighborInit(const GAgent* ag, const int range, iterInfo &info) const {
@@ -548,6 +551,9 @@ void test2() {
 				<<j<<"\t"
 				<<randDebugArray[STRIP*j]<<"\t"
 				<<randDebugArray[STRIP*j+1]<<"\t"
+				<<randDebugArray[STRIP*j+2]<<"\t"
+				<<randDebugArray[STRIP*j+3]<<"\t"
+				<<randDebugArray[STRIP*j+4]<<"\t"
 				<<std::endl;
 			randDebugOut3.flush();
 		}
