@@ -51,7 +51,7 @@ namespace c2dUtil{
 	void sort_hash_kernel(int *hash, int *neighborIdx);
 	void gen_cellIdx_kernel(int *hash, Continuous2D *c2d);
 	void queryNeighbor(Continuous2D *c2d);
-	void genNeighbor(Continuous2D *world);
+	void genNeighbor(Continuous2D *world, Continuous2D *world_h);
 	__global__ void swapAgentsInWorld(Continuous2D *world);
 };
 namespace schUtil{
@@ -74,7 +74,6 @@ public:
 class GAgent : public GSteppable{
 protected:
 	GAgent *dummy;
-private:
 	int ag_id;
 public:
 	float2d_t loc;
@@ -150,7 +149,7 @@ public:
 	//__global__ functions
 	friend void c2dUtil::gen_hash_kernel(int *hash, Continuous2D *c2d);
 	friend void c2dUtil::gen_cellIdx_kernel(int *hash, Continuous2D *c2d);
-	friend void c2dUtil::genNeighbor(Continuous2D *world);
+	friend void c2dUtil::genNeighbor(Continuous2D *world, Continuous2D *world_h);
 	friend void c2dUtil::queryNeighbor(Continuous2D *c2d);
 	//friend class GModel;
 };
@@ -274,17 +273,17 @@ __device__ float Continuous2D::sty(const float y) const {
 }
 __device__ float Continuous2D::tdx(float ax, float bx) const {
 	float dx = abs(ax-bx);
-	if (dx < BOARDER_R/2)
+	if (dx < BOARDER_R_D/2)
 		return dx;
 	else
-		return BOARDER_R-dx;
+		return BOARDER_R_D-dx;
 }
 __device__ float Continuous2D::tdy(float ay, float by) const {
 	float dy = abs(ay-by);
-	if (dy < BOARDER_D/2)
+	if (dy < BOARDER_D_D/2)
 		return dy;
 	else
-		return BOARDER_D-dy;
+		return BOARDER_D_D-dy;
 }
 __device__ float Continuous2D::tds(const float2d_t loc1, const float2d_t loc2) const {
 	float dx = loc1.x - loc2.x;
@@ -299,10 +298,10 @@ __device__ NextNeighborControl Continuous2D::nextNeighborInit(const GAgent* ag,
 	info.boarder = -1;
 	info.count = 0;
 	info.range = range;
-	info.cellUL.x = (pos.x-range)>BOARDER_L ? 	(int)(pos.x-range)/CELL_RESO : (int)BOARDER_L/CELL_RESO;
-	info.cellDR.x = (pos.x+range)<BOARDER_R ?	(int)(pos.x+range)/CELL_RESO : (int)BOARDER_R/CELL_RESO-1;
-	info.cellUL.y = (pos.y-range)>BOARDER_U ? 	(int)(pos.y-range)/CELL_RESO : (int)BOARDER_U/CELL_RESO;
-	info.cellDR.y = (pos.y+range)<BOARDER_D ? 	(int)(pos.y+range)/CELL_RESO : (int)BOARDER_D/CELL_RESO-1;
+	info.cellUL.x = (pos.x-range)>BOARDER_L_D ? 	(int)(pos.x-range)/CELL_RESO : (int)BOARDER_L_D/CELL_RESO;
+	info.cellDR.x = (pos.x+range)<BOARDER_R_D ?	(int)(pos.x+range)/CELL_RESO : (int)BOARDER_R_D/CELL_RESO-1;
+	info.cellUL.y = (pos.y-range)>BOARDER_U_D ? 	(int)(pos.y-range)/CELL_RESO : (int)BOARDER_U_D/CELL_RESO;
+	info.cellDR.y = (pos.y+range)<BOARDER_D_D ? 	(int)(pos.y+range)/CELL_RESO : (int)BOARDER_D_D/CELL_RESO-1;
 	info.cellCur.x = info.cellUL.x;
 	info.cellCur.y = info.cellUL.y;
 	info.ptr = cellIdx[info.cellCur.cell_id()];
@@ -460,7 +459,6 @@ __device__ float GRandomGen::nextFloat(curandState *state){
 __device__ float GRandomGen::nextGaussian(){return 0;}
 
 //namespace continuous2D Utility
-int count = 0;
 __global__ void c2dUtil::gen_hash_kernel(int *hash, Continuous2D *c2d)
 {
 	GAgent *ag = c2d->obtainAgentPerThread();
@@ -500,16 +498,13 @@ void c2dUtil::sort_hash_kernel(int *hash, int *neighborIdx)
 	Iter val_begin(id_ptr);
 	thrust::sort_by_key(key_begin, key_end, val_begin);
 }
-void c2dUtil::genNeighbor(Continuous2D *world)
+void c2dUtil::genNeighbor(Continuous2D *world, Continuous2D *world_h)
 {
+	static int iterCount = 0;
 	int bSize = BLOCK_SIZE;
 	int gSize = GRID_SIZE;
 	if (AGENT_NO%bSize != 0)
 		gSize++;
-
-	Continuous2D *world_h = new Continuous2D(0,0,0);
-	cudaMemcpy(world_h, world, sizeof(Continuous2D), cudaMemcpyDeviceToHost);
-	cudaCheckErrors("genNeighbor:cudaMemcpy:world_h");
 
 	int *hash;
 	cudaMalloc((void**)&hash, AGENT_NO*sizeof(int));
@@ -519,31 +514,34 @@ void c2dUtil::genNeighbor(Continuous2D *world)
 	gen_cellIdx_kernel<<<gSize, bSize>>>(hash, world);
 
 	//debug
-	//int *id_h, *hash_h, *cidx_h;
-	//id_h = new int[AGENT_NO];
-	//hash_h = new int[AGENT_NO];
-	//cidx_h = new int[CELL_NO];
-	//cudaMemcpy(id_h, world_h->neighborIdx, AGENT_NO * sizeof(int), cudaMemcpyDeviceToHost);
-	//cudaCheckErrors("genNeighbor:cudaMemcpy(id_h");
-	//cudaMemcpy(hash_h, hash, AGENT_NO * sizeof(int), cudaMemcpyDeviceToHost);
-	//cudaCheckErrors("genNeighbor:cudaMemcpy(hash_h");
-	//cudaMemcpy(cidx_h, world_h->cellIdx, CELL_NO * sizeof(int), cudaMemcpyDeviceToHost);
-	//cudaCheckErrors("genNeighbor:cudaMemcpy(cidx_h");
-	//std::fstream fout;
-	//char *outfname = new char[10];
-	//sprintf(outfname, "out%d.txt", count++);
-	//fout.open(outfname, std::ios::out);
-	//for (int i = 0; i < AGENT_NO; i++){
-	//	fout << id_h[i] << " " << hash_h[i] <<std::endl;
-	//	fout.flush();
-	//}
-	//for (int i = 0; i < CELL_NO; i++){
-	//	fout << cidx_h[i] <<std::endl;
-	//	fout.flush();
-	//}
-	//fout.close();
+	if (iterCount == 186){
+		int *id_h, *hash_h, *cidx_h;
+		id_h = new int[AGENT_NO];
+		hash_h = new int[AGENT_NO];
+		cidx_h = new int[CELL_NO];
+		cudaMemcpy(id_h, world_h->neighborIdx, AGENT_NO * sizeof(int), cudaMemcpyDeviceToHost);
+		cudaCheckErrors("genNeighbor:cudaMemcpy(id_h");
+		cudaMemcpy(hash_h, hash, AGENT_NO * sizeof(int), cudaMemcpyDeviceToHost);
+		cudaCheckErrors("genNeighbor:cudaMemcpy(hash_h");
+		cudaMemcpy(cidx_h, world_h->cellIdx, CELL_NO * sizeof(int), cudaMemcpyDeviceToHost);
+		cudaCheckErrors("genNeighbor:cudaMemcpy(cidx_h");
+		std::fstream fout;
+		char *outfname = new char[10];
+		sprintf(outfname, "out%d.txt", iterCount++);
+		fout.open(outfname, std::ios::out);
+		for (int i = 0; i < AGENT_NO; i++){
+			fout << id_h[i] << " " << hash_h[i] <<std::endl;
+			fout.flush();
+		}
+		for (int i = 0; i < CELL_NO; i++){
+			fout << cidx_h[i] <<std::endl;
+			fout.flush();
+		}
+		fout.close();
+	}
 	//~debug
 
+	iterCount++;
 	cudaFree(hash);
 	cudaCheckErrors("genNeighbor:cudaFree:hash");
 }

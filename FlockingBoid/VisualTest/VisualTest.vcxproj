@@ -11,7 +11,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <CudaCompile Include="ripple.cu" />
+    <ClCompile Include="testHue.cpp" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{5B460773-3DF3-41C4-AC4B-726AEC85AEB7}</ProjectGuid>
