@@ -1,5 +1,6 @@
 #include "gsimcore.cuh"
 #include "gsimapp_boid.cuh"
+#include "gsimvisual.cuh"
 #include <fstream>
 #include <iostream>
 #include <string>
@@ -111,6 +112,10 @@ void readConfig(){
 			p=strtok(NULL, "=");
 			STEPS = atoi(p);
 		}
+		if(strcmp(p, "VERBOSE")==0){
+			p=strtok(NULL, "=");
+			VERBOSE = atoi(p);
+		}
 		if(strcmp(p, "CELL_NO")==0){
 			p=strtok(NULL, "=");
 			CELL_NO = atoi(p);
@@ -123,23 +128,23 @@ void readConfig(){
 		}
 		if(strcmp(p, "BOARDER_L")==0){
 			p=strtok(NULL, "=");
-			temp = atoi(p);
-			cudaMemcpyToSymbol(BOARDER_L, &temp, sizeof(int), 0, cudaMemcpyHostToDevice);
+			BOARDER_L_H = atoi(p);
+			cudaMemcpyToSymbol(BOARDER_L_D, &BOARDER_L_H, sizeof(int), 0, cudaMemcpyHostToDevice);
 		}
 		if(strcmp(p, "BOARDER_R")==0){
 			p=strtok(NULL, "=");
-			temp = atoi(p);
-			cudaMemcpyToSymbol(BOARDER_R, &temp, sizeof(int), 0, cudaMemcpyHostToDevice);
+			BOARDER_R_H = atoi(p);
+			cudaMemcpyToSymbol(BOARDER_R_D, &BOARDER_R_H, sizeof(int), 0, cudaMemcpyHostToDevice);
 		}
 		if(strcmp(p, "BOARDER_U")==0){
 			p=strtok(NULL, "=");
-			temp = atoi(p);
-			cudaMemcpyToSymbol(BOARDER_U, &temp, sizeof(int), 0, cudaMemcpyHostToDevice);
+			BOARDER_U_H = atoi(p);
+			cudaMemcpyToSymbol(BOARDER_U_D, &BOARDER_U_H, sizeof(int), 0, cudaMemcpyHostToDevice);
 		}
 		if(strcmp(p, "BOARDER_D")==0){
 			p=strtok(NULL, "=");
-			temp = atoi(p);
-			cudaMemcpyToSymbol(BOARDER_D, &temp, sizeof(int), 0, cudaMemcpyHostToDevice);
+			BOARDER_D_H = atoi(p);
+			cudaMemcpyToSymbol(BOARDER_D_D, &BOARDER_D_H, sizeof(int), 0, cudaMemcpyHostToDevice);
 		}
 		if(strcmp(p, "XLENGTH")==0){
 			p=strtok(NULL, "=");
@@ -171,8 +176,6 @@ void readRandDebug(float *devRandDebug, std::string str1, std::string str2){
 	}
 	cudaMemcpy(devRandDebug, hostRandDebug, 
 		STRIP*gSize*BLOCK_SIZE*sizeof(float), cudaMemcpyHostToDevice);
-	cudaMemcpyToSymbol(randDebug, &devRandDebug, sizeof(devRandDebug),
-		0, cudaMemcpyHostToDevice);
 	
 	free(hostRandDebug);
 	buf1.clear();
@@ -181,10 +184,19 @@ void readRandDebug(float *devRandDebug, std::string str1, std::string str2){
 	tokens2.clear();
 }
 
+void oneStep(BoidModel *model, BoidModel *model_h){
+	int gSize = GRID_SIZE;
+	c2dUtil::genNeighbor(model_h->world, model_h->worldH);
+	schUtil::step<<<gSize, BLOCK_SIZE>>>(model);
+
+	c2dUtil::swapAgentsInWorld<<<gSize, BLOCK_SIZE>>>(model_h->world);
+	schUtil::swapAgentsInScheduler<<<gSize, BLOCK_SIZE>>>(model);
+}
+
 int main(int argc, char *argv[]){
 	readConfig();
-
 	int gSize = GRID_SIZE;
+
 	BoidModel *model_h = new BoidModel();
 	model_h->allocOnDevice();
 	BoidModel *model;
@@ -210,18 +222,40 @@ int main(int argc, char *argv[]){
 	std::string str2;
 	float *devRandDebug;
 	cudaMalloc((void**)&devRandDebug, STRIP*gSize*BLOCK_SIZE*sizeof(float));
+	cudaMemcpyToSymbol(randDebug, &devRandDebug, sizeof(devRandDebug),
+		0, cudaMemcpyHostToDevice);
+
+	GSimVisual::getInstance().setWorld(model_h->world);
 
 	for (int i=0; i<STEPS; i++){
-		std::getline(fin, str1);
-		std::getline(fin, str2);
-		readRandDebug(devRandDebug, str1, str2);
-
-		c2dUtil::genNeighbor(model_h->world);
-		schUtil::step<<<gSize, BLOCK_SIZE>>>(model);
-
-		c2dUtil::swapAgentsInWorld<<<gSize, BLOCK_SIZE>>>(model_h->world);
-		schUtil::swapAgentsInScheduler<<<gSize, BLOCK_SIZE>>>(model);
+		printf("STEP:%d\n", i);
+		//std::getline(fin, str1);
+		//std::getline(fin, str2);
+		//readRandDebug(devRandDebug, str1, str2);
+		oneStep(model, model_h);
+		GSimVisual::getInstance().animate();
+		
+		if (i == 185 || i == 186 || i == 184) {
+			printf("AT STEP 187\n");
+			std::fstream randDebugOut;
+			randDebugOut.open("randDebugOut.txt", std::ios::out);
+			float *hostRandDebug = (float*)malloc(STRIP*gSize*BLOCK_SIZE*sizeof(float));
+			cudaMemcpy(hostRandDebug, devRandDebug, 
+				STRIP*gSize*BLOCK_SIZE*sizeof(float), cudaMemcpyDeviceToHost);
+			for(int i=0; i<gSize*BLOCK_SIZE; i++) {
+				randDebugOut<<
+					hostRandDebug[STRIP*i]<<" \t"<<
+					hostRandDebug[STRIP*i+1]<<" \t"<<
+					std::endl;
+				randDebugOut.flush();
+			}
+			randDebugOut.close();
+			free(hostRandDebug);
+		}
 	}
+
+	glutLeaveMainLoop();
+
 	cudaCheckErrors("finished");
 	system("PAUSE");
 	return 0;
@@ -262,4 +296,5 @@ void backupcode1(){ //devRand
 		randDebugOut.flush();
 	}
 	randDebugOut.close();
+	randDebugOut2.close();
 }

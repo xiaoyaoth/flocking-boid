@@ -21,5 +21,8 @@
     <None Include="header.cuh">
       <Filter>lib</Filter>
     </None>
+    <None Include="gsimvisual.cuh">
+      <Filter>lib</Filter>
+    </None>
   </ItemGroup>
 </Project>

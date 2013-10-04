@@ -39,6 +39,7 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <LinkIncremental>true</LinkIncremental>
+    <IncludePath>$(CUDA_SDK_PATH)/C/common/inc;$(CUDA_SDK_PATH)/shared/inc;$(CudaToolkitIncludeDir);$(VCInstallDir)include;$(VCInstallDir)atlmfc\include;$(WindowsSdkDir)include;$(FrameworkSDKDir)\include;</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>true</LinkIncremental>
@@ -52,6 +53,7 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Console</SubSystem>
       <AdditionalDependencies>cudart.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(CUDA_PATH)/lib/$(Platform);(Additi$(CudaToolkitLibDir);$(CUDA_SDK_PATH)/C/common/lib/$(PlatformName);$(CUDA_SDK_PATH)/shared/lib/$(PlatformName);%(AdditionalLibraryDirectories);$(CudaToolkitLibDir)</AdditionalLibraryDirectories>
     </Link>
     <PostBuildEvent>
       <Command>echo copy "$(CudaToolkitBinDir)\cudart*.dll" "$(OutDir)"
@@ -59,8 +61,7 @@ copy "$(CudaToolkitBinDir)\cudart*.dll" "$(OutDir)"</Command>
     </PostBuildEvent>
     <CudaCompile>
       <CodeGeneration>compute_20,sm_20</CodeGeneration>
-      <Include>
-      </Include>
+      <Include>./;$(CUDA_SDK_PATH)/C/common/inc;$(CUDA_SDK_PATH)/shared/inc;$(CudaToolkitIncludeDir)</Include>
       <PtxAsOptionV>false</PtxAsOptionV>
     </CudaCompile>
   </ItemDefinitionGroup>
@@ -92,6 +93,7 @@ copy "$(CudaToolkitBinDir)\cudart*.dll" "$(OutDir)"</Command>
       <FileType>Document</FileType>
     </None>
     <CudaCompile Include="kernel.cu" />
+    <None Include="gsimvisual.cuh" />
     <None Include="header.cuh" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

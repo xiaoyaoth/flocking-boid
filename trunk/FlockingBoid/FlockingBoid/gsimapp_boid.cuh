@@ -163,7 +163,7 @@ void BoidModel::allocOnDevice(){
 	//init scheduler
 	GModel::allocOnDevice();
 	//init Continuous2D
-	worldH = new Continuous2D(BOARDER_R, BOARDER_D, this->neighborhood/1.5);
+	worldH = new Continuous2D(BOARDER_R_H, BOARDER_D_H, this->neighborhood/1.5);
 	worldH->allocOnDevice();
 	cudaMalloc((void**)&world, sizeof(Continuous2D));
 	cudaMemcpy(world, worldH, sizeof(Continuous2D), cudaMemcpyHostToDevice);
@@ -179,7 +179,7 @@ void BoidModel::allocOnDevice(){
 void BoidModel::allocOnHost(){
 	GModel::allocOnHost();
 
-	world = new Continuous2D(BOARDER_R, BOARDER_D, this->neighborhood/1.5);
+	world = new Continuous2D(BOARDER_R_H, BOARDER_D_H, this->neighborhood/1.5);
 	world->allocOnHost();
 	this->scheduler = new GScheduler();
 	this->scheduler->allocOnHost();
@@ -366,9 +366,9 @@ __device__ float2d_t PreyBoid::avoidance(const Continuous2D *world){
 //	this->dummy->loc.x += (xrand-1)*info.count;
 //	this->dummy->loc.y += (yrand-1)*info.count;
 //	if(this->dummy->loc.x < 0)
-//		this->dummy->loc.x += BOARDER_R;
+//		this->dummy->loc.x += BOARDER_R_D;
 //	if(this->dummy->loc.y < 0)
-//		this->dummy->loc.y += BOARDER_D;
+//		this->dummy->loc.y += BOARDER_D_D;
 //	randDebug[STRIP*idx] = xrand;
 //	randDebug[STRIP*idx+1] = yrand;
 //	randDebug[STRIP*idx+2] = this->dummy->loc.x;
@@ -402,12 +402,19 @@ __device__ void PreyBoid::step(GModel *model){
 		dy = dy / dist * boidModel->jump;
 	}
 	BaseBoid *dummy = (BaseBoid*)this->dummy;
-	dummy->lastd = float2d_t(dx, dy);
-	dummy->loc = float2d_t(
-		world->stx(loc.x + dx),
-		world->sty(loc.y + dy)
-		);
-	printf("%f, %f\n", dummy->loc.x, dummy->loc.y);
+	dummy->lastd.x = dx;
+	dummy->lastd.y = dy;
+	dummy->loc.x = world->stx(loc.x + dx);
+	dummy->loc.y = world->sty(loc.y + dy);
+
+	if (dummy->loc.x <0 || dummy->loc.y < 0) {
+		printf("%f, %f, %f, %f", dummy->loc.x, dummy->loc.y, dummy->lastd.x, dummy->lastd.y);
+		dummy->loc.x = world->stx(loc.x + dx);
+	}
+	randDebug[STRIP*this->ag_id] = this->dummy->loc.x;
+	randDebug[STRIP*this->ag_id+1] = this->dummy->loc.y;
+
+//	printf("%f, %f\n", dummy->loc.x, dummy->loc.y);
 }
 
 //PredatorBoid
