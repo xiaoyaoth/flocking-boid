@@ -132,8 +132,10 @@ float2d_t GAgent::momentum(){
 	return lastd;
 }
 float2d_t GAgent::randomness(int idx){
-	float x = randDebugArray[idx*STRIP];
-	float y = randDebugArray[idx*STRIP+1];
+	float x = 1;
+	float y = 1;
+	//float x = randDebugArray[idx*STRIP];
+	//float y = randDebugArray[idx*STRIP+1];
 	float l = sqrt(x*x + y*y);
 	return float2d_t(0.05*x/l, 0.05*y/l);
 }
@@ -159,7 +161,7 @@ float2d_t GAgent::consistency(const Continuous2D *world){
 		x /= count;
 		y /= count;
 	}
-	randDebugArray[STRIP*this->ag_id+2] = info.count;
+	//randDebugArray[STRIP*this->ag_id+2] = info.count;
 	return float2d_t(x,y);
 }
 float2d_t GAgent::cohesion(const Continuous2D *world){
@@ -183,7 +185,7 @@ float2d_t GAgent::cohesion(const Continuous2D *world){
 		x /= count;
 		y /= count;
 	}
-	randDebugArray[STRIP*this->ag_id+3] = info.count;
+	//randDebugArray[STRIP*this->ag_id+3] = info.count;
 	return float2d_t(-x/10,-y/10);
 }
 float2d_t GAgent::avoidance(const Continuous2D *world){
@@ -209,7 +211,7 @@ float2d_t GAgent::avoidance(const Continuous2D *world){
 		x /= count;
 		y /= count;
 	}
-	randDebugArray[STRIP*this->ag_id+4] = info.count;
+	//randDebugArray[STRIP*this->ag_id+4] = info.count;
 	return float2d_t(400*x, 400*y);
 }
 void GAgent::step(const GModel *model){
@@ -236,16 +238,16 @@ void GAgent::step(const GModel *model){
 		momen.y * boidModel->momentum;
 	float dist = sqrt(dx*dx + dy*dy);
 	if (dist > 0){
-		dx = 10* dx / dist * boidModel->jump;
-		dy = 10* dy / dist * boidModel->jump;
+		dx = dx / dist * boidModel->jump;
+		dy = dy / dist * boidModel->jump;
 	}
 	this->dummy->lastd = float2d_t(dx, dy);
 	this->dummy->loc = float2d_t(
 		world->stx(loc.x + dx),
 		world->sty(loc.y + dy)
 		);
-	randDebugArray[this->ag_id*STRIP] = this->dummy->loc.x;
-	randDebugArray[this->ag_id*STRIP+1] = this->dummy->loc.y;
+	//randDebugArray[this->ag_id*STRIP] = this->dummy->loc.x;
+	//randDebugArray[this->ag_id*STRIP+1] = this->dummy->loc.y;
 }
 
 NextNeighborControl Continuous2D::nextNeighborInit(const GAgent* ag, const int range, iterInfo &info) const {
@@ -269,8 +271,6 @@ NextNeighborControl Continuous2D::nextNeighborInit(const GAgent* ag, const int r
 
 	GAgent *other = this->allAgents[this->neighborIdx[info.ptr]];
 	float ds = tds(ag->loc, other->loc);
-	if (info.agent->ag_id == 576)
-		printf("%d %f\n", other->ag_id, ds);
 	if (ds < range){
 		info.count++;
 		return FOUND;
@@ -308,8 +308,6 @@ NextNeighborControl Continuous2D::nextNeighbor(iterInfo &info)const {
 	while (nnc == CONTINUE){
 		other = this->allAgents[this->neighborIdx[info.ptr]];
 		ds = tds(info.agent->loc, other->loc);
-		if (info.agent->ag_id == 576)
-			printf("%d %f\n", other->ag_id, ds);
 		if (ds < info.range){
 			info.count++;
 			return FOUND;
@@ -452,6 +450,7 @@ void sortHash(int *hash, Continuous2D *c2d){
 #endif
 
 }
+
 void genNeighbor(Continuous2D *c2d){
 	size_t agArraySize = AGENT_NO*sizeof(int);
 	int *hash = (int*)malloc(agArraySize);
@@ -512,7 +511,7 @@ void swapDummy(Continuous2D *world){
 	}
 }
 void test2() {
-	randDebugArray = (float*)malloc(AGENT_NO*STRIP*sizeof(float));
+	//randDebugArray = (float*)malloc(AGENT_NO*STRIP*sizeof(float));
 
 	GModel *model = new GModel();
 	model->allocOnHost();
@@ -528,39 +527,47 @@ void test2() {
 		model->world->allAgents[i] = ag;
 	}
 
-	std::ifstream fin("randDebugOut2.txt");
-	std::string str1;
-	std::string str2;
-	std::fstream randDebugOut3;
-#if SORTMETHOD == 1
-	randDebugOut3.open("randDebugOut3.txt", std::ios::out);
-#else
-	randDebugOut3.open("randDebugOut4.txt", std::ios::out);
-#endif
-	for(int i=0; i<3; i++){
+//	std::ifstream fin("randDebugOut2.txt");
+//	std::string str1;
+//	std::string str2;
+//	std::fstream randDebugOut3;
+//#if SORTMETHOD == 1
+//	randDebugOut3.open("randDebugOut3.txt", std::ios::out);
+//#else
+//	randDebugOut3.open("randDebugOut4.txt", std::ios::out);
+//#endif
+	for(int i=0; i<200; i++){
+		//printf("STEP: %d\n", i);
 		genNeighbor(model->world);
-		std::getline(fin, str1);
-		std::getline(fin, str2);
-		initRandDebugArray(str1, str2);
+		//std::getline(fin, str1);
+		//std::getline(fin, str2);
+		//initRandDebugArray(str1, str2);
 		//queryNeighbor(model->world);
 		stepAllAgents(model);
 		swapDummy(model->world);
-		for(int j=0; j<AGENT_NO; j++){
-			randDebugOut3
-				<<std::setw(4)
-				<<j<<"\t"
-				<<randDebugArray[STRIP*j]<<"\t"
-				<<randDebugArray[STRIP*j+1]<<"\t"
-				<<randDebugArray[STRIP*j+2]<<"\t"
-				<<randDebugArray[STRIP*j+3]<<"\t"
-				<<randDebugArray[STRIP*j+4]<<"\t"
-				<<std::endl;
-			randDebugOut3.flush();
-		}
+		/*if (i == 100 ){
+			char *outfname = new char[10];
+			sprintf(outfname, "out%d.txt", i);
+			randDebugOut3.close();
+			randDebugOut3.open(outfname, std::ios::out);
+			for(int j=0; j<AGENT_NO; j++){
+				randDebugOut3
+					<<std::setw(4)
+					<<j<<"\t"
+					<<randDebugArray[STRIP*j]<<"\t"
+					<<randDebugArray[STRIP*j+1]<<"\t"
+					<<randDebugArray[STRIP*j+2]<<"\t"
+					<<randDebugArray[STRIP*j+3]<<"\t"
+					<<randDebugArray[STRIP*j+4]<<"\t"
+					<<std::endl;
+				randDebugOut3.flush();
+			}
+			exit(1);
+		}*/
 		//randDebugOut3<<std::endl;
 		//std::cout<<i<<" ";
 	}
-	randDebugOut3.close();
+	//randDebugOut3.close();
 	//std::cout<<std::endl;
 }
 
