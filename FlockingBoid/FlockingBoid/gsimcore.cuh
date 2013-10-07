@@ -514,31 +514,31 @@ void c2dUtil::genNeighbor(Continuous2D *world, Continuous2D *world_h)
 	gen_cellIdx_kernel<<<gSize, bSize>>>(hash, world);
 
 	//debug
-	if (iterCount == 186){
-		int *id_h, *hash_h, *cidx_h;
-		id_h = new int[AGENT_NO];
-		hash_h = new int[AGENT_NO];
-		cidx_h = new int[CELL_NO];
-		cudaMemcpy(id_h, world_h->neighborIdx, AGENT_NO * sizeof(int), cudaMemcpyDeviceToHost);
-		cudaCheckErrors("genNeighbor:cudaMemcpy(id_h");
-		cudaMemcpy(hash_h, hash, AGENT_NO * sizeof(int), cudaMemcpyDeviceToHost);
-		cudaCheckErrors("genNeighbor:cudaMemcpy(hash_h");
-		cudaMemcpy(cidx_h, world_h->cellIdx, CELL_NO * sizeof(int), cudaMemcpyDeviceToHost);
-		cudaCheckErrors("genNeighbor:cudaMemcpy(cidx_h");
-		std::fstream fout;
-		char *outfname = new char[10];
-		sprintf(outfname, "out%d.txt", iterCount++);
-		fout.open(outfname, std::ios::out);
-		for (int i = 0; i < AGENT_NO; i++){
-			fout << id_h[i] << " " << hash_h[i] <<std::endl;
-			fout.flush();
-		}
-		for (int i = 0; i < CELL_NO; i++){
-			fout << cidx_h[i] <<std::endl;
-			fout.flush();
-		}
-		fout.close();
-	}
+	//if (iterCount == 186){
+	//	int *id_h, *hash_h, *cidx_h;
+	//	id_h = new int[AGENT_NO];
+	//	hash_h = new int[AGENT_NO];
+	//	cidx_h = new int[CELL_NO];
+	//	cudaMemcpy(id_h, world_h->neighborIdx, AGENT_NO * sizeof(int), cudaMemcpyDeviceToHost);
+	//	cudaCheckErrors("genNeighbor:cudaMemcpy(id_h");
+	//	cudaMemcpy(hash_h, hash, AGENT_NO * sizeof(int), cudaMemcpyDeviceToHost);
+	//	cudaCheckErrors("genNeighbor:cudaMemcpy(hash_h");
+	//	cudaMemcpy(cidx_h, world_h->cellIdx, CELL_NO * sizeof(int), cudaMemcpyDeviceToHost);
+	//	cudaCheckErrors("genNeighbor:cudaMemcpy(cidx_h");
+	//	std::fstream fout;
+	//	char *outfname = new char[10];
+	//	sprintf(outfname, "out%d.txt", iterCount);
+	//	fout.open(outfname, std::ios::out);
+	//	for (int i = 0; i < AGENT_NO; i++){
+	//		fout << id_h[i] << " " << hash_h[i] <<std::endl;
+	//		fout.flush();
+	//	}
+	//	for (int i = 0; i < CELL_NO; i++){
+	//		fout << cidx_h[i] <<std::endl;
+	//		fout.flush();
+	//	}
+	//	fout.close();
+	//}
 	//~debug
 
 	iterCount++;

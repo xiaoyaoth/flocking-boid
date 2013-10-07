@@ -89,6 +89,8 @@ void test1(){
 		schUtil::step<<<gSize, BLOCK_SIZE>>>(model);
 }
 
+int SELECTION;
+
 void readConfig(){
 	std::ifstream fin;
 	fin.open("config.txt");
@@ -150,6 +152,10 @@ void readConfig(){
 			p=strtok(NULL, "=");
 			temp = atoi(p);
 			cudaMemcpyToSymbol(XLENGTH, &temp, sizeof(int), 0, cudaMemcpyHostToDevice);
+		}
+		if(strcmp(p, "SELECTION")==0){
+			p=strtok(NULL, "=");
+			SELECTION = atoi(p);
 		}
 	}
 	cudaCheckErrors("readConfig");
@@ -234,24 +240,6 @@ int main(int argc, char *argv[]){
 		//readRandDebug(devRandDebug, str1, str2);
 		oneStep(model, model_h);
 		GSimVisual::getInstance().animate();
-		
-		if (i == 185 || i == 186 || i == 184) {
-			printf("AT STEP 187\n");
-			std::fstream randDebugOut;
-			randDebugOut.open("randDebugOut.txt", std::ios::out);
-			float *hostRandDebug = (float*)malloc(STRIP*gSize*BLOCK_SIZE*sizeof(float));
-			cudaMemcpy(hostRandDebug, devRandDebug, 
-				STRIP*gSize*BLOCK_SIZE*sizeof(float), cudaMemcpyDeviceToHost);
-			for(int i=0; i<gSize*BLOCK_SIZE; i++) {
-				randDebugOut<<
-					hostRandDebug[STRIP*i]<<" \t"<<
-					hostRandDebug[STRIP*i+1]<<" \t"<<
-					std::endl;
-				randDebugOut.flush();
-			}
-			randDebugOut.close();
-			free(hostRandDebug);
-		}
 	}
 
 	glutLeaveMainLoop();
@@ -297,4 +285,28 @@ void backupcode1(){ //devRand
 	}
 	randDebugOut.close();
 	randDebugOut2.close();
+}
+
+void backupcode2(){
+			if (i == SELECTION) {
+			char *outfname = new char[10];
+			sprintf(outfname, "gpuout%d.txt", i);
+			printf("SELECTION\n");
+			std::fstream randDebugOut;
+			randDebugOut.open(outfname, std::ios::out);
+			float *hostRandDebug = (float*)malloc(STRIP*gSize*BLOCK_SIZE*sizeof(float));
+			cudaMemcpy(hostRandDebug, devRandDebug, 
+				STRIP*gSize*BLOCK_SIZE*sizeof(float), cudaMemcpyDeviceToHost);
+			for(int i=0; i<AGENT_NO; i++) {
+				randDebugOut<<
+					i << "\t" <<
+					hostRandDebug[STRIP*i]<<" \t"<<
+					hostRandDebug[STRIP*i+1]<<" \t"<<
+					std::endl;
+				randDebugOut.flush();
+			}
+			randDebugOut.close();
+			free(hostRandDebug);
+			exit(1);
+		}
 }
