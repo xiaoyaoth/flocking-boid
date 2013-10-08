@@ -168,11 +168,11 @@ void BoidModel::allocOnDevice(){
 	cudaMalloc((void**)&world, sizeof(Continuous2D));
 	cudaMemcpy(world, worldH, sizeof(Continuous2D), cudaMemcpyHostToDevice);
 	//init GRandomGen
-	rgenH = new GRandomGen();
-	rgenH->allocOnDevice();
-	cudaMalloc((void**)&rgen, sizeof(GRandomGen));
-	cudaMemcpy(rgen, rgenH, sizeof(GRandomGen), cudaMemcpyHostToDevice);
-	int gSize = GRID_SIZE;
+	//rgenH = new GRandomGen();
+	//rgenH->allocOnDevice();
+	//cudaMalloc((void**)&rgen, sizeof(GRandomGen));
+	//cudaMemcpy(rgen, rgenH, sizeof(GRandomGen), cudaMemcpyHostToDevice);
+	//int gSize = GRID_SIZE;
 	//rgenUtil::initStates<<<gSize, BLOCK_SIZE>>>(rgen, 1234);
 	cudaCheckErrors("BoidModel()");
 }
