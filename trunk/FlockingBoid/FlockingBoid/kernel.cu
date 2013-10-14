@@ -89,8 +89,6 @@ void test1(){
 		schUtil::step<<<gSize, BLOCK_SIZE>>>(model);
 }
 
-int SELECTION;
-
 void readConfig(){
 	std::ifstream fin;
 	fin.open("config.txt");
@@ -156,6 +154,10 @@ void readConfig(){
 		if(strcmp(p, "SELECTION")==0){
 			p=strtok(NULL, "=");
 			SELECTION = atoi(p);
+		}
+		if(strcmp(p, "VISUALIZE")==0){
+			p=strtok(NULL, "=");
+			VISUALIZE = atoi(p);
 		}
 	}
 	cudaCheckErrors("readConfig");
@@ -232,7 +234,6 @@ int main(int argc, char *argv[]){
 		0, cudaMemcpyHostToDevice);
 
 	GSimVisual::getInstance().setWorld(model_h->world);
-
 	for (int i=0; i<STEPS; i++){
 		//printf("STEP:%d\n", i);
 		//std::getline(fin, str1);
@@ -241,9 +242,7 @@ int main(int argc, char *argv[]){
 		oneStep(model, model_h);
 		GSimVisual::getInstance().animate();
 	}
-
-	glutLeaveMainLoop();
-
+	GSimVisual::getInstance().stop();
 	cudaCheckErrors("finished");
 	//system("PAUSE");
 	return 0;
