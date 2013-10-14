@@ -18,7 +18,6 @@
     <ClCompile Include="testXML.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="..\FlockingBoid\config.txt" />
     <None Include="..\FlockingBoid\pos_data.txt.1000" />
     <None Include="..\FlockingBoid\pos_data.txt.10240" />
   </ItemGroup>

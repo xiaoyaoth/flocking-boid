@@ -94,8 +94,10 @@ public:
 	NextNeighborControl nextNeighborInit(const GAgent* ag, const int range, iterInfo &info) const;
 	NextNeighborControl nextNeighbor(iterInfo &info) const;
 	NextNeighborControl nextNeighborPrimitive(iterInfo &info) const;
+	bool foundPrimitive(iterInfo &info) const;
 	int boarderPrimitive(iterInfo &info) const;
 	int ptrPrimitive(iterInfo &info) const;
+	
 
 	float Continuous2D::stx(const float x) const;
 	float Continuous2D::sty(const float y) const;
@@ -280,11 +282,21 @@ int Continuous2D::ptrPrimitive(iterInfo &info) const{
 			info.cell_cur.x = info.cell_ul.x;
 			info.cell_cur.y++;
 			if (info.cell_cur.y > info.cell_dr.y)
-				return -1;
+				return -2;
 		}
 		ptr = cellIdx[info.cell_cur.cell_id()];
 	}
 	return ptr;
+}
+
+bool Continuous2D::foundPrimitive(iterInfo &info) const{
+	GAgent *other = this->allAgents[this->neighborIdx[info.ptr]];
+	float ds = tds(info.agent->loc, other->loc);
+	if (ds < info.range){
+		info.count++;
+		return true;
+	}
+	return false;
 }
 
 NextNeighborControl Continuous2D::nextNeighborPrimitive(iterInfo &info) const{
@@ -306,47 +318,42 @@ NextNeighborControl Continuous2D::nextNeighbor(iterInfo &info)const {
 	GAgent *other;
 	float ds;
 	while (nnc == CONTINUE){
-		other = this->allAgents[this->neighborIdx[info.ptr]];
-		ds = tds(info.agent->loc, other->loc);
-		if (ds < info.range){
-			info.count++;
+		if (info.ptr < 0)
+			return STOP;
+		if (this->foundPrimitive(info))
 			return FOUND;
-		}
 		nnc = this->nextNeighborPrimitive(info);
 	}
 	return nnc;
 }
 
 NextNeighborControl Continuous2D::nextNeighborInit(const GAgent* ag, 
-	const int range, iterInfo &info) const {
-		float2d_t pos = ag->loc;
-		info.agent = ag;
-		info.ptr = -1;
-		info.boarder = -1;
-		info.count = 0;
-		info.range = range;
+const int range, iterInfo &info) const {
+	float2d_t pos = ag->loc;
+	info.agent = ag;
+	info.ptr = -1;
+	info.boarder = -1;
+	info.count = 0;
+	info.range = range;
 
-		info.cell_ul.x = (pos.x-range)>BOARDER_L ? 
-			(int)(pos.x-range)/CELL_RESO : (int)BOARDER_L/CELL_RESO;
-		info.cell_dr.x = (pos.x+range)<BOARDER_R ? 
-			(int)(pos.x+range)/CELL_RESO : (int)BOARDER_R/CELL_RESO - 1;
-		info.cell_ul.y = (pos.y-range)>BOARDER_U ? 
-			(int)(pos.y-range)/CELL_RESO : (int)BOARDER_U/CELL_RESO;
-		info.cell_dr.y = (pos.y+range)<BOARDER_D ? 
-			(int)(pos.y+range)/CELL_RESO : (int)BOARDER_D/CELL_RESO - 1;
-		info.cell_cur.x = info.cell_ul.x;
-		info.cell_cur.y = info.cell_ul.y;
+	info.cell_ul.x = (pos.x-range)>BOARDER_L ? 
+		(int)(pos.x-range)/CELL_RESO : (int)BOARDER_L/CELL_RESO;
+	info.cell_dr.x = (pos.x+range)<BOARDER_R ? 
+		(int)(pos.x+range)/CELL_RESO : (int)BOARDER_R/CELL_RESO - 1;
+	info.cell_ul.y = (pos.y-range)>BOARDER_U ? 
+		(int)(pos.y-range)/CELL_RESO : (int)BOARDER_U/CELL_RESO;
+	info.cell_dr.y = (pos.y+range)<BOARDER_D ? 
+		(int)(pos.y+range)/CELL_RESO : (int)BOARDER_D/CELL_RESO - 1;
+	info.cell_cur.x = info.cell_ul.x;
+	info.cell_cur.y = info.cell_ul.y;
 
-		info.ptr = this->ptrPrimitive(info);
-		info.boarder = this->boarderPrimitive(info);
+	info.ptr = this->ptrPrimitive(info);
+	info.boarder = this->boarderPrimitive(info);
 
-		GAgent *other = this->allAgents[this->neighborIdx[info.ptr]];
-		float ds = tds(pos, other->loc);
-		if (ds < range){
-			info.count++;
-			return FOUND;
-		} else
-			return this->nextNeighbor(info);
+	if (this->foundPrimitive(info))
+		return FOUND;
+	else
+		return this->nextNeighbor(info);
 }
 
 GAgent* Continuous2D::obtainAgentFromNeighborIdx(const int ptr) const{
@@ -585,7 +592,7 @@ void test2() {
 		stepAllAgents(model);
 		swapDummy(model->world);
 
-		if (i == 0 ){
+		if (i == 10 ){
 			char *outfname = new char[10];
 			sprintf(outfname, "cppout_%d.txt", i);
 			randDebugOut3.open(outfname, std::ios::out);
@@ -610,7 +617,7 @@ void test2() {
 	//std::cout<<std::endl;
 }
 
-int main(){
+int main(){ 
 	int start = GetTickCount();
 	test2();
 	int end = GetTickCount();
