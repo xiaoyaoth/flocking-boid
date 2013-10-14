@@ -7,14 +7,16 @@
 #include <iostream>
 
 //	Later to be specified in the XML file
+//#define CELL_RESO	10 //10*10
 #define CELL_RESO	100 //10*10
 #define BOARDER_L	0
 #define BOARDER_R	1000
 #define BOARDER_U	0
 #define BOARDER_D	1000
 #define XLENGTH		((int)(BOARDER_R-BOARDER_L)/CELL_RESO)
-#define AGENT_NO	8192
-#define CELL_NO		CELL_RESO
+#define AGENT_NO	1024
+//#define CELL_NO		10000
+#define CELL_NO		100
 #define BLOCK_SIZE	1024
 
 typedef struct int_2d
@@ -42,7 +44,6 @@ typedef struct float_2d
 		this->x = xx;
 		this->y = yy;
 	}
-
 	float distance (float_2d p){
 		return sqrt((p.x-x)*(p.x-x)+(p.y-y)*(p.y-y));
 	}
