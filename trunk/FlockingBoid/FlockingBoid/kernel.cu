@@ -6,6 +6,7 @@
 #include <string>
 #include <sstream>
 #include <iterator>
+#include <iomanip>
 
 __global__ void seeAllAgents(BoidModel *gm){
 	GAgent *ag = gm->getScheduler()->obtainAgentPerThread();
@@ -116,16 +117,25 @@ void readConfig(){
 			p=strtok(NULL, "=");
 			VERBOSE = atoi(p);
 		}
-		if(strcmp(p, "CELL_NO")==0){
-			p=strtok(NULL, "=");
-			CELL_NO = atoi(p);
-			cudaMemcpyToSymbol(CELL_NO_D, &CELL_NO, sizeof(int), 0, cudaMemcpyHostToDevice);
-		}
 		if(strcmp(p, "CELL_RESO")==0){
 			p=strtok(NULL, "=");
-			temp = atoi(p);
-			cudaMemcpyToSymbol(CELL_RESO, &temp, sizeof(int), 0, cudaMemcpyHostToDevice);
+			int CELL_RESO_TEMP = atoi(p);
+			cudaMemcpyToSymbol(CELL_RESO, &CELL_RESO_TEMP, sizeof(int), 0, cudaMemcpyHostToDevice);
+			int XLENGTH_TEMP = ((int)(BOARDER_R_H-BOARDER_L_H)/CELL_RESO_TEMP);
+			cudaMemcpyToSymbol(XLENGTH, &XLENGTH_TEMP, sizeof(int), 0, cudaMemcpyHostToDevice);
+			CELL_NO = ((int)(BOARDER_D_H-BOARDER_U_H)/CELL_RESO_TEMP) * XLENGTH_TEMP;
+			cudaMemcpyToSymbol(CELL_NO_D, &CELL_NO, sizeof(int), 0, cudaMemcpyHostToDevice);
 		}
+		//if(strcmp(p, "XLENGTH")==0){
+		//	p=strtok(NULL, "=");
+		//	temp = atoi(p);
+		//	cudaMemcpyToSymbol(XLENGTH, &temp, sizeof(int), 0, cudaMemcpyHostToDevice);
+		//}
+		//if(strcmp(p, "CELL_NO")==0){
+		//	p=strtok(NULL, "=");
+		//	CELL_NO = atoi(p);
+		//	cudaMemcpyToSymbol(CELL_NO_D, &CELL_NO, sizeof(int), 0, cudaMemcpyHostToDevice);
+		//}
 		if(strcmp(p, "BOARDER_L")==0){
 			p=strtok(NULL, "=");
 			BOARDER_L_H = atoi(p);
@@ -145,11 +155,6 @@ void readConfig(){
 			p=strtok(NULL, "=");
 			BOARDER_D_H = atoi(p);
 			cudaMemcpyToSymbol(BOARDER_D_D, &BOARDER_D_H, sizeof(int), 0, cudaMemcpyHostToDevice);
-		}
-		if(strcmp(p, "XLENGTH")==0){
-			p=strtok(NULL, "=");
-			temp = atoi(p);
-			cudaMemcpyToSymbol(XLENGTH, &temp, sizeof(int), 0, cudaMemcpyHostToDevice);
 		}
 		if(strcmp(p, "SELECTION")==0){
 			p=strtok(NULL, "=");
@@ -190,6 +195,32 @@ void readRandDebug(float *devRandDebug, std::string str1, std::string str2){
 	buf2.clear();
 	tokens1.clear();
 	tokens2.clear();
+}
+
+void writeRandDebug(int i, float* devRandDebug){
+	int gSize = GRID_SIZE;
+	if (i == SELECTION) {		
+		char *outfname = new char[10];		
+		sprintf(outfname, "gpuout%d.txt", i);		
+		printf("SELECTION\n");		
+		std::fstream randDebugOut;		
+		randDebugOut.open(outfname, std::ios::out);		
+		float *hostRandDebug = (float*)malloc(STRIP*gSize*BLOCK_SIZE*sizeof(float));		
+		cudaMemcpy(hostRandDebug, devRandDebug,		
+			STRIP*gSize*BLOCK_SIZE*sizeof(float), cudaMemcpyDeviceToHost);		
+		for(int i=0; i<AGENT_NO; i++) {		
+			randDebugOut
+				<<std::setw(4)
+				<<i<< "\t"
+				<<hostRandDebug[STRIP*i]<<" \t"
+				<<hostRandDebug[STRIP*i+1]<<" \t"
+				<<std::endl;		
+			randDebugOut.flush();		
+		}		
+		randDebugOut.close();		
+		free(hostRandDebug);		
+		exit(1);		
+	}	
 }
 
 void oneStep(BoidModel *model, BoidModel *model_h){
@@ -241,6 +272,7 @@ int main(int argc, char *argv[]){
 		//readRandDebug(devRandDebug, str1, str2);
 		oneStep(model, model_h);
 		GSimVisual::getInstance().animate();
+		writeRandDebug(i, devRandDebug);
 	}
 	GSimVisual::getInstance().stop();
 	cudaCheckErrors("finished");
