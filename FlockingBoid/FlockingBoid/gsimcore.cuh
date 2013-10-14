@@ -195,7 +195,6 @@ public:
 
 //Continuous2D
 void Continuous2D::allocOnDevice(){
-
 	size_t sizeAgArray = AGENT_NO*sizeof(int);
 	size_t sizeCellArray = CELL_NO*sizeof(int);
 
@@ -205,16 +204,6 @@ void Continuous2D::allocOnDevice(){
 	cudaCheckErrors("Continuous2D():cudaMalloc:neighborIdx");
 	cudaMalloc((void**)&cellIdx, sizeCellArray);
 	cudaCheckErrors("Continuous2D():cudaMalloc:cellIdx");
-
-#if C2DDEBUG == 1
-	int *neighborIdx_h = (int*)malloc(sizeAgArray);
-	for(int i=0; i<AGENT_NO; i++)
-		neighborIdx_h[i] = 2;
-	cudaMemcpy(this->neighborIdx, neighborIdx_h, sizeAgArray, cudaMemcpyHostToDevice);
-	cudaCheckErrors("Continuous2D():cudaMemcpy:neighborIdx");
-	cudaMemcpy(this->cellIdx, neighborIdx_h, sizeCellArray, cudaMemcpyHostToDevice);
-	cudaCheckErrors("Continuous2D():cudaMemcpy:cellIdx");
-#endif
 }
 void Continuous2D::allocOnHost(){
 	size_t sizeAgArray = AGENT_NO*sizeof(int);
@@ -305,6 +294,16 @@ __device__ NextNeighborControl Continuous2D::nextNeighborInit(const GAgent* ag,
 	info.cellCur.x = info.cellUL.x;
 	info.cellCur.y = info.cellUL.y;
 	info.ptr = cellIdx[info.cellCur.cell_id()];
+	while (info.ptr == -1) {
+		info.cellCur.x++;
+		if (info.cellCur.x > info.cellDR.x){
+			info.cellCur.x = info.cellUL.x;
+			info.cellCur.y++;
+			if (info.cellCur.y > info.cellDR.y)
+				return STOP;
+		}
+		info.ptr = cellIdx[info.cellCur.cell_id()];
+	}
 	if (info.cellCur.cell_id() == CELL_NO_D-1)
 		info.boarder = AGENT_NO_D-1;
 	else
@@ -464,7 +463,7 @@ __global__ void c2dUtil::gen_hash_kernel(int *hash, Continuous2D *c2d)
 	GAgent *ag = c2d->obtainAgentPerThread();
 	if(ag != NULL) {
 		int idx = ag->getAgId();
-		hash[idx] = (int)(ag->loc.x/100) + 10 * (int)(ag->loc.y/100);
+		hash[idx] = (int)(ag->loc.x/CELL_RESO) + XLENGTH * (int)(ag->loc.y/CELL_RESO);
 		c2d->neighborIdx[idx] = ag->getAgId();
 	}
 }
@@ -508,37 +507,38 @@ void c2dUtil::genNeighbor(Continuous2D *world, Continuous2D *world_h)
 
 	int *hash;
 	cudaMalloc((void**)&hash, AGENT_NO*sizeof(int));
+	cudaMemset(world_h->cellIdx, 0xff, CELL_NO*sizeof(int));
 	cudaCheckErrors("genNeighbor:cudaMalloc:hash");
 	gen_hash_kernel<<<gSize, bSize>>>(hash, world);
 	sort_hash_kernel(hash, world_h->neighborIdx);
 	gen_cellIdx_kernel<<<gSize, bSize>>>(hash, world);
 
 	//debug
-	//if (iterCount == 186){
-	//	int *id_h, *hash_h, *cidx_h;
-	//	id_h = new int[AGENT_NO];
-	//	hash_h = new int[AGENT_NO];
-	//	cidx_h = new int[CELL_NO];
-	//	cudaMemcpy(id_h, world_h->neighborIdx, AGENT_NO * sizeof(int), cudaMemcpyDeviceToHost);
-	//	cudaCheckErrors("genNeighbor:cudaMemcpy(id_h");
-	//	cudaMemcpy(hash_h, hash, AGENT_NO * sizeof(int), cudaMemcpyDeviceToHost);
-	//	cudaCheckErrors("genNeighbor:cudaMemcpy(hash_h");
-	//	cudaMemcpy(cidx_h, world_h->cellIdx, CELL_NO * sizeof(int), cudaMemcpyDeviceToHost);
-	//	cudaCheckErrors("genNeighbor:cudaMemcpy(cidx_h");
-	//	std::fstream fout;
-	//	char *outfname = new char[10];
-	//	sprintf(outfname, "out%d.txt", iterCount);
-	//	fout.open(outfname, std::ios::out);
-	//	for (int i = 0; i < AGENT_NO; i++){
-	//		fout << id_h[i] << " " << hash_h[i] <<std::endl;
-	//		fout.flush();
-	//	}
-	//	for (int i = 0; i < CELL_NO; i++){
-	//		fout << cidx_h[i] <<std::endl;
-	//		fout.flush();
-	//	}
-	//	fout.close();
-	//}
+	if (iterCount == SELECTION){
+		int *id_h, *hash_h, *cidx_h;
+		id_h = new int[AGENT_NO];
+		hash_h = new int[AGENT_NO];
+		cidx_h = new int[CELL_NO];
+		cudaMemcpy(id_h, world_h->neighborIdx, AGENT_NO * sizeof(int), cudaMemcpyDeviceToHost);
+		cudaCheckErrors("genNeighbor:cudaMemcpy(id_h");
+		cudaMemcpy(hash_h, hash, AGENT_NO * sizeof(int), cudaMemcpyDeviceToHost);
+		cudaCheckErrors("genNeighbor:cudaMemcpy(hash_h");
+		cudaMemcpy(cidx_h, world_h->cellIdx, CELL_NO * sizeof(int), cudaMemcpyDeviceToHost);
+		cudaCheckErrors("genNeighbor:cudaMemcpy(cidx_h");
+		std::fstream fout;
+		char *outfname = new char[10];
+		sprintf(outfname, "out%d.txt", iterCount);
+		fout.open(outfname, std::ios::out);
+		for (int i = 0; i < AGENT_NO; i++){
+			fout << id_h[i] << " " << hash_h[i] <<std::endl;
+			fout.flush();
+		}
+		for (int i = 0; i < CELL_NO; i++){
+			fout << cidx_h[i] <<std::endl;
+			fout.flush();
+		}
+		fout.close();
+	}
 	//~debug
 
 	iterCount++;
@@ -596,5 +596,4 @@ __global__ void rgenUtil::initStates(GRandomGen *rgen, int seed){
 namespace gsim{
 
 };
-
 #endif

@@ -25,34 +25,36 @@ private:
 	PFNGLBUFFERDATAARBPROC    glBufferData;
 
 	GSimVisual(){
-		this->width = 256;
-		this->height = 256;
-		glBindBuffer     = NULL;
-		glDeleteBuffers  = NULL;
-		glGenBuffers     = NULL;
-		glBufferData     = NULL;
-		
-		int c = 1;
-		char *dummy = " ";
-		glutInit( &c, &dummy );
-		glutInitDisplayMode( GLUT_DOUBLE | GLUT_RGBA );
-		glutInitWindowSize( this->width, this->height );
-		glutCreateWindow( "bitmap" );
+		if (VISUALIZE == true) {
+			this->width = 256;
+			this->height = 256;
+			glBindBuffer     = NULL;
+			glDeleteBuffers  = NULL;
+			glGenBuffers     = NULL;
+			glBufferData     = NULL;
 
-		glBindBuffer    = (PFNGLBINDBUFFERARBPROC)GET_PROC_ADDRESS("glBindBuffer");
-		glDeleteBuffers = (PFNGLDELETEBUFFERSARBPROC)GET_PROC_ADDRESS("glDeleteBuffers");
-		glGenBuffers    = (PFNGLGENBUFFERSARBPROC)GET_PROC_ADDRESS("glGenBuffers");
-		glBufferData    = (PFNGLBUFFERDATAARBPROC)GET_PROC_ADDRESS("glBufferData");
-		glGenBuffers( 1, &bufferObj );
-		glBindBuffer( GL_PIXEL_UNPACK_BUFFER_ARB, bufferObj );
-		glBufferData( GL_PIXEL_UNPACK_BUFFER_ARB, this->height*this->height*sizeof(uchar4),
-			NULL, GL_DYNAMIC_DRAW_ARB );
-		cudaGraphicsGLRegisterBuffer(&resource, bufferObj, cudaGraphicsMapFlagsNone);
-		cudaCheckErrors("cudaGraphicsGLRegisterBuffer");
+			int c = 1;
+			char *dummy = " ";
+			glutInit( &c, &dummy );
+			glutInitDisplayMode( GLUT_DOUBLE | GLUT_RGBA );
+			glutInitWindowSize( this->width, this->height );
+			glutCreateWindow( "bitmap" );
 
-		glutDisplayFunc(drawFunc);
-		glutIdleFunc(idleFunc);
-		glutSetOption(GLUT_ACTION_ON_WINDOW_CLOSE, GLUT_ACTION_GLUTMAINLOOP_RETURNS);
+			glBindBuffer    = (PFNGLBINDBUFFERARBPROC)GET_PROC_ADDRESS("glBindBuffer");
+			glDeleteBuffers = (PFNGLDELETEBUFFERSARBPROC)GET_PROC_ADDRESS("glDeleteBuffers");
+			glGenBuffers    = (PFNGLGENBUFFERSARBPROC)GET_PROC_ADDRESS("glGenBuffers");
+			glBufferData    = (PFNGLBUFFERDATAARBPROC)GET_PROC_ADDRESS("glBufferData");
+			glGenBuffers( 1, &bufferObj );
+			glBindBuffer( GL_PIXEL_UNPACK_BUFFER_ARB, bufferObj );
+			glBufferData( GL_PIXEL_UNPACK_BUFFER_ARB, this->height*this->height*sizeof(uchar4),
+				NULL, GL_DYNAMIC_DRAW_ARB );
+			cudaGraphicsGLRegisterBuffer(&resource, bufferObj, cudaGraphicsMapFlagsNone);
+			cudaCheckErrors("cudaGraphicsGLRegisterBuffer");
+
+			glutDisplayFunc(drawFunc);
+			glutIdleFunc(idleFunc);
+			glutSetOption(GLUT_ACTION_ON_WINDOW_CLOSE, GLUT_ACTION_GLUTMAINLOOP_RETURNS);
+		}
 	}
 
 	static void idleFunc(){
@@ -107,11 +109,18 @@ public:
 	}
 
 	void setWorld(Continuous2D *world){
-		GSimVisual::getInstance().world = world;
+		if (VISUALIZE == true)
+			GSimVisual::getInstance().world = world;
 	}
 
 	void animate(){
-		glutMainLoopEvent();
+		if (VISUALIZE == true)
+			glutMainLoopEvent();
+	}
+
+	void stop(){
+		if (VISUALIZE == true)
+			glutLeaveMainLoop();
 	}
 };
 
