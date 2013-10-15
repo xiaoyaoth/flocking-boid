@@ -27,15 +27,11 @@ int STEPS;
 
 int SELECTION;
 bool VISUALIZE = false;
-
-#define BLOCK_SIZE	256
-#define GRID_SIZE	(AGENT_NO%BLOCK_SIZE==0 ? AGENT_NO/BLOCK_SIZE : AGENT_NO/BLOCK_SIZE+1)
-
 int VERBOSE;
-#define C2DDEBUG 0
-#define SCHDEBUG 0
-#define MODDEBUG 1
-#define GLBDEBUG 0
+int FILE_GEN;
+
+int BLOCK_SIZE;
+int GRID_SIZE;
 
 typedef struct int_2d
 {
