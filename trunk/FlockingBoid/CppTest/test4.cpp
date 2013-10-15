@@ -21,9 +21,9 @@ class Continuous2D;
 
 typedef struct iter_info_per_thread
 {
-	int2d_t cell_cur;
-	int2d_t cell_ul;
-	int2d_t cell_dr;
+	int2d_t cellCur;
+	int2d_t cellUL;
+	int2d_t cellDR;
 
 	int ptr;
 	int boarder;
@@ -257,7 +257,7 @@ void GAgent::step(const GModel *model){
 }
 
 int Continuous2D::boarderPrimitive(iterInfo &info) const{
-	int cellIdBoarder = info.cell_cur.y * XLENGTH + info.cell_dr.x + 1;
+	int cellIdBoarder = info.cellCur.y * XLENGTH + info.cellDR.x + 1;
 	int ptrBoarder = -1;
 	if (cellIdBoarder < CELL_NO)
 		ptrBoarder = cellIdx[cellIdBoarder];
@@ -275,16 +275,16 @@ int Continuous2D::boarderPrimitive(iterInfo &info) const{
 }
 
 int Continuous2D::ptrPrimitive(iterInfo &info) const{
-	int ptr = cellIdx[info.cell_cur.cell_id()];
+	int ptr = cellIdx[info.cellCur.cell_id()];
 	while (ptr == -1){
-		info.cell_cur.x++;
-		if (info.cell_cur.x > info.cell_dr.x){
-			info.cell_cur.x = info.cell_ul.x;
-			info.cell_cur.y++;
-			if (info.cell_cur.y > info.cell_dr.y)
+		info.cellCur.x++;
+		if (info.cellCur.x > info.cellDR.x){
+			info.cellCur.x = info.cellUL.x;
+			info.cellCur.y++;
+			if (info.cellCur.y > info.cellDR.y)
 				return -2;
 		}
-		ptr = cellIdx[info.cell_cur.cell_id()];
+		ptr = cellIdx[info.cellCur.cell_id()];
 	}
 	return ptr;
 }
@@ -302,9 +302,9 @@ bool Continuous2D::foundPrimitive(iterInfo &info) const{
 NextNeighborControl Continuous2D::nextNeighborPrimitive(iterInfo &info) const{
 	info.ptr++;
 	if (info.ptr > info.boarder){
-		info.cell_cur.x = info.cell_ul.x;
-		info.cell_cur.y++;
-		if (info.cell_cur.y <= info.cell_dr.y){
+		info.cellCur.x = info.cellUL.x;
+		info.cellCur.y++;
+		if (info.cellCur.y <= info.cellDR.y){
 			info.ptr = this->ptrPrimitive(info);
 			info.boarder = this->boarderPrimitive(info);
 		} else
@@ -336,16 +336,16 @@ const int range, iterInfo &info) const {
 	info.count = 0;
 	info.range = range;
 
-	info.cell_ul.x = (pos.x-range)>BOARDER_L ? 
+	info.cellUL.x = (pos.x-range)>BOARDER_L ? 
 		(int)(pos.x-range)/CELL_RESO : (int)BOARDER_L/CELL_RESO;
-	info.cell_dr.x = (pos.x+range)<BOARDER_R ? 
+	info.cellDR.x = (pos.x+range)<BOARDER_R ? 
 		(int)(pos.x+range)/CELL_RESO : (int)BOARDER_R/CELL_RESO - 1;
-	info.cell_ul.y = (pos.y-range)>BOARDER_U ? 
+	info.cellUL.y = (pos.y-range)>BOARDER_U ? 
 		(int)(pos.y-range)/CELL_RESO : (int)BOARDER_U/CELL_RESO;
-	info.cell_dr.y = (pos.y+range)<BOARDER_D ? 
+	info.cellDR.y = (pos.y+range)<BOARDER_D ? 
 		(int)(pos.y+range)/CELL_RESO : (int)BOARDER_D/CELL_RESO - 1;
-	info.cell_cur.x = info.cell_ul.x;
-	info.cell_cur.y = info.cell_ul.y;
+	info.cellCur.x = info.cellUL.x;
+	info.cellCur.y = info.cellUL.y;
 
 	info.ptr = this->ptrPrimitive(info);
 	info.boarder = this->boarderPrimitive(info);
@@ -468,8 +468,8 @@ void sortHash1(int *hash, Continuous2D *c2d){
 	vec.erase(vec.begin(), vec.end());
 }
 void sortHash2(int *hash, Continuous2D *c2d){
-	std::vector<int> hashMap[CELL_NO];
-	//std::vector <std::vector<int>> hashMap(CELL_NO);
+	//std::vector<int> hashMap[CELL_NO];
+	std::vector <std::vector<int>> hashMap(CELL_NO);
 	for(int i=0; i<AGENT_NO; i++)
 		hashMap[hash[i]].push_back(c2d->neighborIdx[i]);
 
@@ -555,6 +555,29 @@ void initRandDebugArray(std::string str1, std::string str2){
 		randDebugArray[i*STRIP+1] = atof(tokens2[i].c_str());
 	}
 }
+void writeRandDebugArray(int i, int SELECTION){
+	if (i == SELECTION ){
+		std::fstream randDebugOut3;
+		char *outfname = new char[10];
+		sprintf(outfname, "cppout_%d.txt", i);
+		randDebugOut3.open(outfname, std::ios::out);
+		for(int j=0; j<AGENT_NO; j++){
+			randDebugOut3
+				<<std::setw(4)
+				<<j<<"\t"
+				<<randDebugArray[STRIP*j]<<"\t"
+				<<randDebugArray[STRIP*j+1]<<"\t"
+				<<randDebugArray[STRIP*j+2]<<"\t"
+				<<randDebugArray[STRIP*j+3]<<"\t"
+				<<randDebugArray[STRIP*j+4]<<"\t"
+				<<std::endl;
+			randDebugOut3.flush();
+		}
+		randDebugOut3.close();
+		std::cout<<std::endl;
+		exit(1);
+	}
+}
 void swapDummy(Continuous2D *world){
 	for(int i=0; i<AGENT_NO; i++){
 		GAgent *ag = world->allAgents[i];
@@ -581,7 +604,6 @@ void test2() {
 	//	std::ifstream fin("randDebugOut2.txt");
 	//	std::string str1;
 	//	std::string str2;
-	std::fstream randDebugOut3;
 	for(int i=0; i<200; i++){
 		//printf("STEP: %d\n", i);
 		genNeighbor(model->world);
@@ -591,30 +613,8 @@ void test2() {
 		//queryNeighbor(model->world);
 		stepAllAgents(model);
 		swapDummy(model->world);
-
-		if (i == 10 ){
-			char *outfname = new char[10];
-			sprintf(outfname, "cppout_%d.txt", i);
-			randDebugOut3.open(outfname, std::ios::out);
-			for(int j=0; j<AGENT_NO; j++){
-				randDebugOut3
-					<<std::setw(4)
-					<<j<<"\t"
-					<<randDebugArray[STRIP*j]<<"\t"
-					<<randDebugArray[STRIP*j+1]<<"\t"
-					<<randDebugArray[STRIP*j+2]<<"\t"
-					<<randDebugArray[STRIP*j+3]<<"\t"
-					<<randDebugArray[STRIP*j+4]<<"\t"
-					<<std::endl;
-				randDebugOut3.flush();
-			}
-			exit(1);
-		}
-		//randDebugOut3<<std::endl;
-		//std::cout<<i<<" ";
+		writeRandDebugArray(i, 0);
 	}
-	//randDebugOut3.close();
-	//std::cout<<std::endl;
 }
 
 int main(){ 

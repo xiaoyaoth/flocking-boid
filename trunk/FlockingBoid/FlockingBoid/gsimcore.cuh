@@ -375,6 +375,7 @@ __device__ NextNeighborControl Continuous2D::nextNeighborInit(const GAgent* ag,
 		return FOUND;
 	else
 		return this->nextNeighbor(info);
+	__syncthreads();
 }
 
 //GAgent
@@ -498,7 +499,7 @@ __global__ void c2dUtil::gen_cellIdx_kernel(int *hash, Continuous2D *c2d)
 			c2d->cellIdx[hash[idx]] = idx;
 	}
 	if (idx == 0)
-		c2d->cellIdx[idx] = idx;
+		c2d->cellIdx[hash[0]] = idx;
 }
 __global__ void c2dUtil::queryNeighbor(Continuous2D *c2d){
 	iterInfo info;
@@ -537,7 +538,7 @@ void c2dUtil::genNeighbor(Continuous2D *world, Continuous2D *world_h)
 	gen_cellIdx_kernel<<<gSize, bSize>>>(hash, world);
 
 	//debug
-	if (iterCount == SELECTION){
+	if (iterCount == SELECTION && FILE_GEN == 1){
 		int *id_h, *hash_h, *cidx_h;
 		id_h = new int[AGENT_NO];
 		hash_h = new int[AGENT_NO];
@@ -550,7 +551,7 @@ void c2dUtil::genNeighbor(Continuous2D *world, Continuous2D *world_h)
 		cudaCheckErrors("genNeighbor:cudaMemcpy(cidx_h");
 		std::fstream fout;
 		char *outfname = new char[10];
-		sprintf(outfname, "out%d.txt", iterCount);
+		sprintf(outfname, "out_genNeighbor_%d.txt", iterCount);
 		fout.open(outfname, std::ios::out);
 		for (int i = 0; i < AGENT_NO; i++){
 			fout << id_h[i] << " " << hash_h[i] <<std::endl;

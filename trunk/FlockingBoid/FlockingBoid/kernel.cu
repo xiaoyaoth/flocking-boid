@@ -96,7 +96,7 @@ void readConfig(){
 	std::string rec;
 	char *cstr, *p;
 	cstr = (char *)malloc(100 * sizeof(char));
-	int temp;
+	int CELL_RESO_TEMP;
 
 	while (!fin.eof()) {
 		std::getline(fin, rec);
@@ -119,23 +119,9 @@ void readConfig(){
 		}
 		if(strcmp(p, "CELL_RESO")==0){
 			p=strtok(NULL, "=");
-			int CELL_RESO_TEMP = atoi(p);
+			CELL_RESO_TEMP = atoi(p);
 			cudaMemcpyToSymbol(CELL_RESO, &CELL_RESO_TEMP, sizeof(int), 0, cudaMemcpyHostToDevice);
-			int XLENGTH_TEMP = ((int)(BOARDER_R_H-BOARDER_L_H)/CELL_RESO_TEMP);
-			cudaMemcpyToSymbol(XLENGTH, &XLENGTH_TEMP, sizeof(int), 0, cudaMemcpyHostToDevice);
-			CELL_NO = ((int)(BOARDER_D_H-BOARDER_U_H)/CELL_RESO_TEMP) * XLENGTH_TEMP;
-			cudaMemcpyToSymbol(CELL_NO_D, &CELL_NO, sizeof(int), 0, cudaMemcpyHostToDevice);
 		}
-		//if(strcmp(p, "XLENGTH")==0){
-		//	p=strtok(NULL, "=");
-		//	temp = atoi(p);
-		//	cudaMemcpyToSymbol(XLENGTH, &temp, sizeof(int), 0, cudaMemcpyHostToDevice);
-		//}
-		//if(strcmp(p, "CELL_NO")==0){
-		//	p=strtok(NULL, "=");
-		//	CELL_NO = atoi(p);
-		//	cudaMemcpyToSymbol(CELL_NO_D, &CELL_NO, sizeof(int), 0, cudaMemcpyHostToDevice);
-		//}
 		if(strcmp(p, "BOARDER_L")==0){
 			p=strtok(NULL, "=");
 			BOARDER_L_H = atoi(p);
@@ -164,10 +150,25 @@ void readConfig(){
 			p=strtok(NULL, "=");
 			VISUALIZE = atoi(p);
 		}
+		if(strcmp(p, "FILE_GEN")==0){
+			p=strtok(NULL, "=");
+			FILE_GEN = atoi(p);
+		}
+		if(strcmp(p, "BLOCK_SIZE")==0){
+			p=strtok(NULL, "=");
+			BLOCK_SIZE = atoi(p);
+		}
 	}
 	cudaCheckErrors("readConfig");
 	free(cstr);
 	fin.close();
+
+	int XLENGTH_TEMP = ((int)(BOARDER_R_H-BOARDER_L_H)/CELL_RESO_TEMP);
+	cudaMemcpyToSymbol(XLENGTH, &XLENGTH_TEMP, sizeof(int), 0, cudaMemcpyHostToDevice);
+	CELL_NO = ((int)(BOARDER_D_H-BOARDER_U_H)/CELL_RESO_TEMP) * XLENGTH_TEMP;
+	cudaMemcpyToSymbol(CELL_NO_D, &CELL_NO, sizeof(int), 0, cudaMemcpyHostToDevice);
+	GRID_SIZE = AGENT_NO%BLOCK_SIZE==0 ? 
+		AGENT_NO/BLOCK_SIZE : AGENT_NO/BLOCK_SIZE + 1;
 }
 
 void readRandDebug(float *devRandDebug, std::string str1, std::string str2){
@@ -198,29 +199,31 @@ void readRandDebug(float *devRandDebug, std::string str1, std::string str2){
 }
 
 void writeRandDebug(int i, float* devRandDebug){
-	int gSize = GRID_SIZE;
-	if (i == SELECTION) {		
-		char *outfname = new char[10];		
-		sprintf(outfname, "gpuout%d.txt", i);		
-		printf("SELECTION\n");		
-		std::fstream randDebugOut;		
-		randDebugOut.open(outfname, std::ios::out);		
-		float *hostRandDebug = (float*)malloc(STRIP*gSize*BLOCK_SIZE*sizeof(float));		
-		cudaMemcpy(hostRandDebug, devRandDebug,		
-			STRIP*gSize*BLOCK_SIZE*sizeof(float), cudaMemcpyDeviceToHost);		
-		for(int i=0; i<AGENT_NO; i++) {		
-			randDebugOut
-				<<std::setw(4)
-				<<i<< "\t"
-				<<hostRandDebug[STRIP*i]<<" \t"
-				<<hostRandDebug[STRIP*i+1]<<" \t"
-				<<std::endl;		
-			randDebugOut.flush();		
-		}		
-		randDebugOut.close();		
-		free(hostRandDebug);		
-		exit(1);		
-	}	
+	if (FILE_GEN == 1){
+		int gSize = GRID_SIZE;
+		if (i == SELECTION) {		
+			char *outfname = new char[10];		
+			sprintf(outfname, "gpuout%d.txt", i);		
+			printf("SELECTION\n");		
+			std::fstream randDebugOut;		
+			randDebugOut.open(outfname, std::ios::out);		
+			float *hostRandDebug = (float*)malloc(STRIP*gSize*BLOCK_SIZE*sizeof(float));		
+			cudaMemcpy(hostRandDebug, devRandDebug,		
+				STRIP*gSize*BLOCK_SIZE*sizeof(float), cudaMemcpyDeviceToHost);		
+			for(int i=0; i<AGENT_NO; i++) {		
+				randDebugOut
+					<<std::setw(4)
+					<<i<< "\t"
+					<<hostRandDebug[STRIP*i]<<" \t"
+					<<hostRandDebug[STRIP*i+1]<<" \t"
+					<<std::endl;		
+				randDebugOut.flush();		
+			}		
+			randDebugOut.close();		
+			free(hostRandDebug);		
+			exit(1);		
+		}	
+	}
 }
 
 void oneStep(BoidModel *model, BoidModel *model_h){
@@ -233,6 +236,7 @@ void oneStep(BoidModel *model, BoidModel *model_h){
 }
 
 int main(int argc, char *argv[]){
+	cudaDeviceSetCacheConfig(cudaFuncCachePreferL1);
 	readConfig();
 	int gSize = GRID_SIZE;
 
