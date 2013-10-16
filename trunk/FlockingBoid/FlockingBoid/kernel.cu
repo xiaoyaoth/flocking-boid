@@ -232,7 +232,7 @@ void oneStep(BoidModel *model, BoidModel *model_h){
 }
 
 int main(int argc, char *argv[]){
-	cudaDeviceSetCacheConfig(cudaFuncCachePreferL1);
+	cudaDeviceSetCacheConfig(cudaFuncCachePreferShared);
 	readConfig();
 	int gSize = GRID_SIZE;
 
