@@ -65,7 +65,6 @@ private:
 		cudaCheckErrors("cudaGraphicsMapResources");
 		cudaGraphicsResourceGetMappedPointer( (void**)&devPtr, &size, vis.resource);
 		cudaCheckErrors("cudaGraphicsResourceGetMappedPointer");
-		int gSize = GRID_SIZE;
 		
 		visUtil::paint<<<256, 256>>>(devPtr, vis.world);
 
