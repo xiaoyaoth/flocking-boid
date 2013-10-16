@@ -7,7 +7,7 @@
 enum BoidType {PREY_BOID, PREDATOR_BOID, FOOD_BOID};
 enum BoidState{HUNGRY, NORMAL, FLEEING, STARVING, SEEKING_MATE};
 __device__ float *randDebug;
-#define STRIP 4
+#define STRIP 2
 
 class BoidModel : public GModel{
 public:
@@ -278,12 +278,12 @@ __device__ float2d_t PreyBoid::consistency(const Continuous2D *world){
 	float x = 0;
 	float y = 0;
 	int count = 0;
-	int agIdx = -1;
 
+#if NEIGHBOR_METHOD == 1
 	iterInfo info;
 	NextNeighborControl nnc = world->nextNeighborInit(this, this->model->neighborhood, info);
 	while (nnc != STOP){
-		PreyBoid *other = (PreyBoid*)world->obtainAgentFromNeighborIdx(info.ptr);
+		PreyBoid *other = (PreyBoid*)world->obtainAgentByIterInfo(info.ptr);
 		if(!other->dead){
 			count++;
 			float2d_t m = other->momentum();
@@ -292,6 +292,19 @@ __device__ float2d_t PreyBoid::consistency(const Continuous2D *world){
 		}
 		nnc = world->nextNeighbor(info);
 	}
+#else
+	NextNeighborControl nnc = world->nextNeighborInit2(this, this->model->neighborhood);
+	while (nnc != STOP){
+		PreyBoid *other = (PreyBoid*)world->obtainAgentByIterInfo2();
+		if(!other->dead){
+			count++;
+			float2d_t m = other->momentum();
+			x += m.x;
+			y += m.y;
+		}
+		nnc = world->nextNeighbor2();
+	}
+#endif
 	if (count > 0){
 		x /= count;
 		y /= count;
@@ -302,12 +315,12 @@ __device__ float2d_t PreyBoid::cohesion(const Continuous2D *world){
 	float x = 0;
 	float y = 0;
 	int count = 0;
-	int agIdx = -1;
 
+#if NEIGHBOR_METHOD == 1
 	iterInfo info;
 	NextNeighborControl nnc = world->nextNeighborInit(this, this->model->neighborhood, info);
 	while (nnc != STOP){
-		PreyBoid *other = (PreyBoid*)world->obtainAgentFromNeighborIdx(info.ptr);
+		PreyBoid *other = (PreyBoid*)world->obtainAgentByIterInfo(info.ptr);
 		if (!other->dead){
 			count++;
 			x += world->tdx(this->loc.x, other->loc.x);
@@ -315,6 +328,18 @@ __device__ float2d_t PreyBoid::cohesion(const Continuous2D *world){
 		}
 		nnc = world->nextNeighbor(info);
 	}
+#else
+	NextNeighborControl nnc = world->nextNeighborInit2(this, this->model->neighborhood);
+	while (nnc != STOP){
+		PreyBoid *other = (PreyBoid*)world->obtainAgentByIterInfo2();
+		if (!other->dead){
+			count++;
+			x += world->tdx(this->loc.x, other->loc.x);
+			y += world->tdy(this->loc.y, other->loc.y);
+		}
+		nnc = world->nextNeighbor2();
+	}
+#endif
 	if (count > 0){
 		x /= count;
 		y /= count;
@@ -325,11 +350,12 @@ __device__ float2d_t PreyBoid::avoidance(const Continuous2D *world){
 	float x = 0;
 	float y = 0;
 	int count = 0;
-	int agIdx = -1;
+
+#if NEIGHBOR_METHOD == 1
 	iterInfo info;
 	NextNeighborControl nnc = world->nextNeighborInit(this, this->model->neighborhood, info);
 	while(nnc != STOP){
-		PreyBoid *other = (PreyBoid*)world->obtainAgentFromNeighborIdx(info.ptr);
+		PreyBoid *other = (PreyBoid*)world->obtainAgentByIterInfo(info.ptr);
 		if (!other->dead){
 			count++;
 			float dx = world->tdx(this->loc.x, other->loc.x);
@@ -340,6 +366,21 @@ __device__ float2d_t PreyBoid::avoidance(const Continuous2D *world){
 		}
 		nnc = world->nextNeighbor(info);
 	}
+#else
+	NextNeighborControl nnc = world->nextNeighborInit2(this, this->model->neighborhood);
+	while(nnc != STOP){
+		PreyBoid *other = (PreyBoid*)world->obtainAgentByIterInfo2();
+		if (!other->dead){
+			count++;
+			float dx = world->tdx(this->loc.x, other->loc.x);
+			float dy = world->tdy(this->loc.y, other->loc.y);
+			float sqrDist = dx*dx + dy*dy;
+			x += dx/(sqrDist*sqrDist + 1);
+			y += dy/(sqrDist*sqrDist + 1);
+		}
+		nnc = world->nextNeighbor2();
+	}
+#endif
 	if (count > 0){
 		x /= count;
 		y /= count;
@@ -350,30 +391,6 @@ __device__ float2d_t PreyBoid::avoidance(const Continuous2D *world){
 //__device__ float2d_t PreyBoid::searchFood(Continuous2D *world){return float2d_t(0,0);}
 //__device__ float2d_t PreyBoid::conformSpeed(Continuous2D *world){return float2d_t(0,0);}
 //__device__ float2d_t PreyBoid::searchMate(Continuous2D *world){return float2d_t(0,0);}
-//__device__ void PreyBoidStep(GModel *model){
-//  const int idx = threadIdx.x + blockIdx.x * blockDim.x
-//	iterInfo info;
-//	Continuous2D *w = model->getWorld();
-//	NextNeighborControl nnc = w->nextNeighborInit(this, 200, info);
-//	while (nnc != STOP){
-//		nnc = w->nextNeighbor(info);
-//	}
-//	info.ptr = 0;
-//	//float xrand = model->rgen->nextFloat();
-//	//float yrand = model->rgen->nextFloat();
-//	float xrand = randDebug[STRIP*idx];
-//	float yrand = randDebug[STRIP*idx+1];
-//	this->dummy->loc.x += (xrand-1)*info.count;
-//	this->dummy->loc.y += (yrand-1)*info.count;
-//	if(this->dummy->loc.x < 0)
-//		this->dummy->loc.x += BOARDER_R_D;
-//	if(this->dummy->loc.y < 0)
-//		this->dummy->loc.y += BOARDER_D_D;
-//	randDebug[STRIP*idx] = xrand;
-//	randDebug[STRIP*idx+1] = yrand;
-//	randDebug[STRIP*idx+2] = this->dummy->loc.x;
-//	randDebug[STRIP*idx+3] = this->dummy->loc.y;
-//}
 __device__ void PreyBoid::step(GModel *model){
 	const BoidModel *boidModel = (BoidModel*) model;
 	if (this->dead)

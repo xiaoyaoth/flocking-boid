@@ -57,11 +57,6 @@ __global__ void addAgentsOnDevice(BoidModel *gm, float *x_pos, float *y_pos){
 	}
 }
 
-__global__ void swapDummy(GModel *gm){
-	const int idx = threadIdx.x + blockIdx.x * blockDim.x;
-	
-}
-
 void test1(){
 	int gSize = GRID_SIZE;
 	printf("sizeof(GModel*): %d\n", sizeof(GModel*));
@@ -228,8 +223,9 @@ void writeRandDebug(int i, float* devRandDebug){
 
 void oneStep(BoidModel *model, BoidModel *model_h){
 	int gSize = GRID_SIZE;
+	size_t sizeOfSmem = BLOCK_SIZE*sizeof(iterInfo);
 	c2dUtil::genNeighbor(model_h->world, model_h->worldH);
-	schUtil::step<<<gSize, BLOCK_SIZE>>>(model);
+	schUtil::step<<<gSize, BLOCK_SIZE, sizeOfSmem>>>(model);
 
 	c2dUtil::swapAgentsInWorld<<<gSize, BLOCK_SIZE>>>(model_h->world);
 	schUtil::swapAgentsInScheduler<<<gSize, BLOCK_SIZE>>>(model);
@@ -282,42 +278,4 @@ int main(int argc, char *argv[]){
 	cudaCheckErrors("finished");
 	//system("PAUSE");
 	return 0;
-}
-
-void backupcode1(){ //devRand
-	int gSize = GRID_SIZE;
-	float *devRandDebug;
-	cudaMalloc((void**)&devRandDebug, STRIP*gSize*BLOCK_SIZE*sizeof(float));
-	cudaMemcpyToSymbol(randDebug, &devRandDebug, sizeof(devRandDebug),
-		0, cudaMemcpyHostToDevice);
-
-	std::fstream randDebugOut;
-	std::fstream randDebugOut2;
-	randDebugOut.open("randDebugOut.txt", std::ios::out);
-	randDebugOut2.open("randDebugOut2.txt", std::ios::out);
-	float *hostRandDebug = (float*)malloc(STRIP*gSize*BLOCK_SIZE*sizeof(float));
-
-	cudaMemcpy(hostRandDebug, devRandDebug, 
-		STRIP*gSize*BLOCK_SIZE*sizeof(float), cudaMemcpyDeviceToHost);
-	for(int i=0; i<gSize*BLOCK_SIZE; i++) {
-		randDebugOut2<<hostRandDebug[STRIP*i]<<"\t";
-		randDebugOut2.flush();
-	}
-	randDebugOut2<<std::endl;
-	for(int i=0; i<gSize*BLOCK_SIZE; i++) {
-		randDebugOut2<<hostRandDebug[STRIP*i+1]<<"\t";
-		randDebugOut2.flush();
-	}
-	randDebugOut2<<std::endl;
-	for(int i=0; i<gSize*BLOCK_SIZE; i++) {
-		randDebugOut<<
-			hostRandDebug[STRIP*i]<<" \t"<<
-			hostRandDebug[STRIP*i+1]<<" \t"<<
-			hostRandDebug[STRIP*i+2]<<" \t"<<
-			hostRandDebug[STRIP*i+3]<<" \t"<<
-			std::endl;
-		randDebugOut.flush();
-	}
-	randDebugOut.close();
-	randDebugOut2.close();
 }
