@@ -381,6 +381,7 @@ __device__ float2d_t PreyBoid::avoidance(const Continuous2D *world){
 		nnc = world->nextNeighbor2();
 	}
 #endif
+	const iterInfo &info = infoArray[threadIdx.x];
 	if (count > 0){
 		x /= count;
 		y /= count;
