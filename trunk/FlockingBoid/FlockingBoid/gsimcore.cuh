@@ -46,7 +46,8 @@ typedef struct iter_info_per_thread
 } iterInfo;
 enum NextNeighborControl{CONTINUE, STOP, FOUND};
 extern __shared__ iterInfo infoArray[];
-#define NEIGHBOR_METHOD 2
+#define TRIAL_NEIGHBOR	1
+#define TRIAL_ZCODE		1
 
 namespace c2dUtil{
 	void gen_hash_kernel(int *hash, Continuous2D *c2d);
@@ -148,7 +149,7 @@ public:
 	__device__ float tdy(float ay, float by) const;
 	__device__ float tds(float2d_t aloc, float2d_t bloc) const;
 	//Neighbors related
-#if NEIGHBOR_METHOD == 1
+#if TRIAL_NEIGHBOR == 0
 	__device__ NextNeighborControl nextNeighborInit(const GAgent* ag, const float range, iterInfo &info) const;
 	__device__ NextNeighborControl nextNeighbor(iterInfo &info) const;
 	__device__ GAgent* obtainAgentByIterInfo(const int ptr) const;
@@ -283,8 +284,9 @@ __device__ float Continuous2D::tds(const float2d_t loc1, const float2d_t loc2) c
 	float dy = loc1.y - loc2.y;
 	return sqrt(dx*dx + dy*dy);
 }
+#if TRIAL_ZCODE == 0
 __device__ int Continuous2D::boarderPrimitive(iterInfo &info) const{
-	int cellIdBoarder = info.cellCur.y * XLENGTH + info.cellDR.x + 1;
+	int cellIdBoarder = info.cellCur.y * CNO_PER_DIM + info.cellDR.x + 1;
 	int ptrBoarder = -1;
 	if (cellIdBoarder < CELL_NO_D)
 		ptrBoarder = cellIdx[cellIdBoarder];
@@ -336,7 +338,58 @@ __device__ NextNeighborControl Continuous2D::nextNeighborPrimitive(iterInfo &inf
 	}
 	return CONTINUE;
 }
-#if NEIGHBOR_METHOD == 1
+#else
+__device__ int Continuous2D::boarderPrimitive(iterInfo &info) const{
+	//check something about current cell
+	int cellIdBoarder = info.cellCur.zcode();
+	int ptrBoarder = cellIdx[cellIdBoarder];
+	if (ptrBoarder == -1) //if last cell is empty
+		return -1;
+	else if (cellIdBoarder == CELL_NO_D-1) // if last cell if not empty
+		return AGENT_NO_D-1;
+	//check something about next cell and next...
+	cellIdBoarder++;
+	ptrBoarder = cellIdx[cellIdBoarder];
+	while(ptrBoarder == -1){
+		cellIdBoarder++;
+		if (cellIdBoarder == CELL_NO_D-1)
+			return AGENT_NO_D-1;
+		ptrBoarder = cellIdx[cellIdBoarder];
+	}
+	return ptrBoarder-1;
+}
+__device__ int Continuous2D::ptrPrimitive(iterInfo &info) const{
+	int ptr = cellIdx[info.cellCur.zcode()];
+	return ptr;
+}
+__device__ bool Continuous2D::foundPrimitive(iterInfo &info) const{
+	if (info.ptr < 0)
+		return false;
+	GAgent *other = this->allAgents[this->neighborIdx[info.ptr]];
+	float ds = tds(info.agent->loc, other->loc);
+	if (ds < info.range){
+		info.count++;
+		return true;
+	}
+	return false;
+}
+__device__ NextNeighborControl Continuous2D::nextNeighborPrimitive(iterInfo &info) const {
+	info.ptr++;
+	if (info.ptr > info.boarder){
+		info.cellCur.x++;
+		if (info.cellCur.x > info.cellDR.x){
+			info.cellCur.x = info.cellUL.x;
+			info.cellCur.y++;
+			if (info.cellCur.y > info.cellDR.y)
+				return STOP;
+		}
+		info.ptr = this->ptrPrimitive(info);
+		info.boarder = this->boarderPrimitive(info);
+	}
+	return CONTINUE;
+}
+#endif
+#if TRIAL_NEIGHBOR == 0
 __device__ NextNeighborControl Continuous2D::nextNeighbor(iterInfo &info) const {
 	NextNeighborControl nnc = this->nextNeighborPrimitive(info);
 	while (nnc == CONTINUE){
@@ -358,13 +411,13 @@ __device__ NextNeighborControl Continuous2D::nextNeighborInit(const GAgent* ag,
 		info.range = range;
 
 		info.cellUL.x = (pos.x-range)>BOARDER_L_D ? 
-			(int)(pos.x-range)/CELL_RESO : (int)BOARDER_L_D/CELL_RESO;
+			(int)(pos.x-range)/CLEN_X : (int)BOARDER_L_D/CLEN_X;
 		info.cellDR.x = (pos.x+range)<BOARDER_R_D ? 
-			(int)(pos.x+range)/CELL_RESO : (int)BOARDER_R_D/CELL_RESO - 1;
+			(int)(pos.x+range)/CLEN_X : (int)BOARDER_R_D/CLEN_X - 1;
 		info.cellUL.y = (pos.y-range)>BOARDER_U_D ? 
-			(int)(pos.y-range)/CELL_RESO : (int)BOARDER_U_D/CELL_RESO;
+			(int)(pos.y-range)/CLEN_Y : (int)BOARDER_U_D/CLEN_Y;
 		info.cellDR.y = (pos.y+range)<BOARDER_D_D ? 
-			(int)(pos.y+range)/CELL_RESO : (int)BOARDER_D_D/CELL_RESO - 1;
+			(int)(pos.y+range)/CLEN_Y : (int)BOARDER_D_D/CLEN_Y - 1;
 		info.cellCur.x = info.cellUL.x;
 		info.cellCur.y = info.cellUL.y;
 
@@ -388,8 +441,6 @@ __device__ NextNeighborControl Continuous2D::nextNeighbor2() const {
 	iterInfo &info = infoArray[threadIdx.x];
 	NextNeighborControl nnc = this->nextNeighborPrimitive(info);
 	while (nnc == CONTINUE){
-		if (info.ptr < 0)
-			return STOP;
 		if (this->foundPrimitive(info))
 			return FOUND;
 		nnc = this->nextNeighborPrimitive(info);
@@ -406,13 +457,13 @@ __device__ NextNeighborControl Continuous2D::nextNeighborInit2(const GAgent* ag,
 	info.range = range;
 
 	info.cellUL.x = (pos.x-range)>BOARDER_L_D ? 
-		(int)(pos.x-range)/CELL_RESO : (int)BOARDER_L_D/CELL_RESO;
+		(int)(pos.x-range)/CLEN_X : (int)BOARDER_L_D/CLEN_X;
 	info.cellDR.x = (pos.x+range)<BOARDER_R_D ? 
-		(int)(pos.x+range)/CELL_RESO : (int)BOARDER_R_D/CELL_RESO - 1;
+		(int)(pos.x+range)/CLEN_X : (int)BOARDER_R_D/CLEN_X - 1;
 	info.cellUL.y = (pos.y-range)>BOARDER_U_D ? 
-		(int)(pos.y-range)/CELL_RESO : (int)BOARDER_U_D/CELL_RESO;
+		(int)(pos.y-range)/CLEN_Y : (int)BOARDER_U_D/CLEN_Y;
 	info.cellDR.y = (pos.y+range)<BOARDER_D_D ? 
-		(int)(pos.y+range)/CELL_RESO : (int)BOARDER_D_D/CELL_RESO - 1;
+		(int)(pos.y+range)/CLEN_Y : (int)BOARDER_D_D/CLEN_Y - 1;
 	info.cellCur.x = info.cellUL.x;
 	info.cellCur.y = info.cellUL.y;
 
@@ -538,15 +589,45 @@ __device__ float GRandomGen::nextFloat(curandState *state){
 __device__ float GRandomGen::nextGaussian(){return 0;}
 
 //namespace continuous2D Utility
+#if TRIAL_ZCODE == 0
 __global__ void c2dUtil::gen_hash_kernel(int *hash, Continuous2D *c2d)
 {
 	GAgent *ag = c2d->obtainAgentPerThread();
 	if(ag != NULL) {
 		int idx = ag->getAgId();
-		hash[idx] = (int)(ag->loc.x/CELL_RESO) + XLENGTH * (int)(ag->loc.y/CELL_RESO);
+		hash[idx] = (int)(ag->loc.x/CLEN_X) + 
+			CNO_PER_DIM * (int)(ag->loc.y/CLEN_Y);
 		c2d->neighborIdx[idx] = ag->getAgId();
 	}
 }
+#else
+__device__ int zcode(int x, int y){
+	x &= 0x0000ffff;                 // x = ---- ---- ---- ---- fedc ba98 7654 3210
+    x = (x ^ (x << 8)) & 0x00ff00ff; // x = ---- ---- fedc ba98 ---- ---- 7654 3210
+    x = (x ^ (x << 4)) & 0x0f0f0f0f; // x = ---- fedc ---- ba98 ---- 7654 ---- 3210
+    x = (x ^ (x << 2)) & 0x33333333; // x = --fe --dc --ba --98 --76 --54 --32 --10
+    x = (x ^ (x << 1)) & 0x55555555; // x = -f-e -d-c -b-a -9-8 -7-6 -5-4 -3-2 -1-0
+	
+	y &= 0x0000ffff;                  // x = ---- ---- ---- ---- fedc ba98 7654 3210
+    y = (y ^ (y << 8)) & 0x00ff00ff; // x = ---- ---- fedc ba98 ---- ---- 7654 3210
+    y = (y ^ (y << 4)) & 0x0f0f0f0f; // x = ---- fedc ---- ba98 ---- 7654 ---- 3210
+    y = (y ^ (y << 2)) & 0x33333333; // x = --fe --dc --ba --98 --76 --54 --32 --10
+    y = (y ^ (y << 1)) & 0x55555555; // x = -f-e -d-c -b-a -9-8 -7-6 -5-4 -3-2 -1-0
+
+	return x | (y << 1);
+}
+__global__ void c2dUtil::gen_hash_kernel(int *hash, Continuous2D *c2d)
+{
+	GAgent *ag = c2d->obtainAgentPerThread();
+	if(ag != NULL) {
+		int idx = ag->getAgId();
+		int xhash = (int)(ag->loc.x/CLEN_X);
+		int yhash = (int)(ag->loc.y/CLEN_Y);
+		hash[idx] = zcode(xhash, yhash);
+		c2d->neighborIdx[idx] = idx;
+	}
+}
+#endif
 __global__ void c2dUtil::gen_cellIdx_kernel(int *hash, Continuous2D *c2d)
 {
 	const int idx = threadIdx.x + blockIdx.x * blockDim.x;
@@ -558,7 +639,7 @@ __global__ void c2dUtil::gen_cellIdx_kernel(int *hash, Continuous2D *c2d)
 		c2d->cellIdx[hash[0]] = idx;
 }
 __global__ void c2dUtil::queryNeighbor(Continuous2D *c2d){
-#if NEIGHBOR_METHOD == 1
+#if TRIAL_NEIGHBOR == 0
 	iterInfo info;
 	const int idx = threadIdx.x + blockIdx.x * blockDim.x;
 	if(idx < AGENT_NO_D){
@@ -608,13 +689,16 @@ void c2dUtil::genNeighbor(Continuous2D *world, Continuous2D *world_h)
 		cudaMemcpy(cidx_h, world_h->cellIdx, CELL_NO * sizeof(int), cudaMemcpyDeviceToHost);
 		cudaCheckErrors("genNeighbor:cudaMemcpy(cidx_h");
 		std::fstream fout;
-		char *outfname = new char[10];
-		sprintf(outfname, "out_genNeighbor_%d.txt", iterCount);
+		char *outfname = new char[30];
+		sprintf(outfname, "out_genNeighbor_%d_neighborIdx.txt", iterCount);
 		fout.open(outfname, std::ios::out);
 		for (int i = 0; i < AGENT_NO; i++){
 			fout << id_h[i] << " " << hash_h[i] <<std::endl;
 			fout.flush();
 		}
+		fout.close();
+		sprintf(outfname, "out_genNeighbor_%d_cellIdx.txt", iterCount);
+		fout.open(outfname, std::ios::out);
 		for (int i = 0; i < CELL_NO; i++){
 			fout << cidx_h[i] <<std::endl;
 			fout.flush();

@@ -13,7 +13,7 @@
 #define BOARDER_D	1000
 #define AGENT_NO	1024
 #define BLOCK_SIZE	1024
-#define DISCRETI	4
+#define DISCRETI	7
 int CNO_PER_DIM = (int)pow((float)2, DISCRETI);
 int CELL_NO = CNO_PER_DIM * CNO_PER_DIM;
 float CLEN_X = (float)(BOARDER_R-BOARDER_L)/CNO_PER_DIM;

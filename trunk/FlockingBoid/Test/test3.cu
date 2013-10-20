@@ -1,4 +1,4 @@
-#include "header.cuh"
+#include "testheader.cuh"
 
 class GModel;
 class Continuous2D{
