@@ -15,8 +15,8 @@
 #define TRIAL_GEOAGENT 1
 #define TRIAL_ZCODE 1
 
-#define SELECTION 0
-#define FILE_GEN 1
+#define SELECTION 100
+#define FILE_GEN 0
 
 class GModel;
 class GAgent;
@@ -260,8 +260,6 @@ float2d_t GAgent::avoidance(const Continuous2D *world){
 	NextNeighborControl nnc = world->nextNeighborInit2(this, this->model->neighborhood);
 	while(nnc != STOP){
 		GAgent *other = (GAgent*)world->obtainAgentByIterInfo2();
-		if(this->ag_id == 0)
-			printf("Other: %d\n", other->ag_id);
 		if (!other->dead){
 			count++;
 			float dx = world->tdx(this->loc.x, other->loc.x);
@@ -273,8 +271,6 @@ float2d_t GAgent::avoidance(const Continuous2D *world){
 		nnc = world->nextNeighbor2();
 	}
 #endif
-	if(this->ag_id == 0)
-		printf("I am here, count is %d\n", count);
 	if (count > 0){
 		x /= count;
 		y /= count;
@@ -736,7 +732,6 @@ void initRandDebugArray(std::string str1, std::string str2){
 	}
 }
 void writeRandDebugArray(int i){
-#if FILE_GEN == 1
 	if (i == SELECTION){
 		std::fstream randDebugOut3;
 		char *outfname = new char[10];
@@ -748,9 +743,9 @@ void writeRandDebugArray(int i){
 				<<j<<"\t"
 				<<randDebugArray[STRIP*j]<<"\t"
 				<<randDebugArray[STRIP*j+1]<<"\t"
-				<<randDebugArray[STRIP*j+2]<<"\t"
-				<<randDebugArray[STRIP*j+3]<<"\t"
-				<<randDebugArray[STRIP*j+4]<<"\t"
+				//<<randDebugArray[STRIP*j+2]<<"\t"
+				//<<randDebugArray[STRIP*j+3]<<"\t"
+				//<<randDebugArray[STRIP*j+4]<<"\t"
 				<<std::endl;
 			randDebugOut3.flush();
 		}
@@ -759,7 +754,6 @@ void writeRandDebugArray(int i){
 		system("PAUSE");
 		exit(1);
 	}
-#endif
 }
 
 void swapDummy(Continuous2D *world){

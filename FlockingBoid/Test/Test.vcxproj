@@ -18,12 +18,12 @@
     <CudaCompile Include="test4.cu" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="..\FlockingBoid\header.cuh">
-      <FileType>Document</FileType>
-    </None>
     <CudaCompile Include="test3.cu">
       <FileType>Document</FileType>
     </CudaCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="testheader.cuh" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{4D747D5F-B5A2-4B9F-A1B4-3B65674554D6}</ProjectGuid>

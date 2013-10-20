@@ -279,7 +279,7 @@ __device__ float2d_t PreyBoid::consistency(const Continuous2D *world){
 	float y = 0;
 	int count = 0;
 
-#if NEIGHBOR_METHOD == 1
+#if TRIAL_NEIGHBOR == 0
 	iterInfo info;
 	NextNeighborControl nnc = world->nextNeighborInit(this, this->model->neighborhood, info);
 	while (nnc != STOP){
@@ -316,7 +316,7 @@ __device__ float2d_t PreyBoid::cohesion(const Continuous2D *world){
 	float y = 0;
 	int count = 0;
 
-#if NEIGHBOR_METHOD == 1
+#if TRIAL_NEIGHBOR == 0
 	iterInfo info;
 	NextNeighborControl nnc = world->nextNeighborInit(this, this->model->neighborhood, info);
 	while (nnc != STOP){
@@ -351,7 +351,7 @@ __device__ float2d_t PreyBoid::avoidance(const Continuous2D *world){
 	float y = 0;
 	int count = 0;
 
-#if NEIGHBOR_METHOD == 1
+#if TRIAL_NEIGHBOR == 0
 	iterInfo info;
 	NextNeighborControl nnc = world->nextNeighborInit(this, this->model->neighborhood, info);
 	while(nnc != STOP){

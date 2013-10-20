@@ -104,19 +104,6 @@ void readConfig(){
 			AGENT_NO = atoi(p);
 			cudaMemcpyToSymbol(AGENT_NO_D, &AGENT_NO, sizeof(int), 0, cudaMemcpyHostToDevice);
 		}
-		if(strcmp(p, "STEPS")==0){
-			p=strtok(NULL, "=");
-			STEPS = atoi(p);
-		}
-		if(strcmp(p, "VERBOSE")==0){
-			p=strtok(NULL, "=");
-			VERBOSE = atoi(p);
-		}
-		if(strcmp(p, "CELL_RESO")==0){
-			p=strtok(NULL, "=");
-			CELL_RESO_TEMP = atoi(p);
-			cudaMemcpyToSymbol(CELL_RESO, &CELL_RESO_TEMP, sizeof(int), 0, cudaMemcpyHostToDevice);
-		}
 		if(strcmp(p, "BOARDER_L")==0){
 			p=strtok(NULL, "=");
 			BOARDER_L_H = atoi(p);
@@ -136,6 +123,18 @@ void readConfig(){
 			p=strtok(NULL, "=");
 			BOARDER_D_H = atoi(p);
 			cudaMemcpyToSymbol(BOARDER_D_D, &BOARDER_D_H, sizeof(int), 0, cudaMemcpyHostToDevice);
+		}
+		if(strcmp(p, "DISCRETI")==0){
+			p=strtok(NULL, "=");
+			DISCRETI = atoi(p);
+		}
+		if(strcmp(p, "STEPS")==0){
+			p=strtok(NULL, "=");
+			STEPS = atoi(p);
+		}
+		if(strcmp(p, "VERBOSE")==0){
+			p=strtok(NULL, "=");
+			VERBOSE = atoi(p);
 		}
 		if(strcmp(p, "SELECTION")==0){
 			p=strtok(NULL, "=");
@@ -158,12 +157,24 @@ void readConfig(){
 	free(cstr);
 	fin.close();
 
-	int XLENGTH_TEMP = ((int)(BOARDER_R_H-BOARDER_L_H)/CELL_RESO_TEMP);
-	cudaMemcpyToSymbol(XLENGTH, &XLENGTH_TEMP, sizeof(int), 0, cudaMemcpyHostToDevice);
-	CELL_NO = ((int)(BOARDER_D_H-BOARDER_U_H)/CELL_RESO_TEMP) * XLENGTH_TEMP;
-	cudaMemcpyToSymbol(CELL_NO_D, &CELL_NO, sizeof(int), 0, cudaMemcpyHostToDevice);
+	int CNO_PER_DIM_H = (int)pow((float)2, DISCRETI);
+	cudaMemcpyToSymbol(CNO_PER_DIM, &CNO_PER_DIM_H, 
+		sizeof(int), 0, cudaMemcpyHostToDevice);
+	
+	CELL_NO = CNO_PER_DIM_H * CNO_PER_DIM_H;
+	cudaMemcpyToSymbol(CELL_NO_D, &CELL_NO, 
+		sizeof(int), 0, cudaMemcpyHostToDevice);
+	
+	float CLEN_X_H = (float)(BOARDER_R_H-BOARDER_L_H)/CNO_PER_DIM_H;
+	float CLEN_Y_H = (float)(BOARDER_D_H-BOARDER_U_H)/CNO_PER_DIM_H;
+	cudaMemcpyToSymbol(CLEN_X, &CLEN_X_H, 
+		sizeof(int), 0, cudaMemcpyHostToDevice);
+	cudaMemcpyToSymbol(CLEN_Y, &CLEN_Y_H, 
+		sizeof(int), 0, cudaMemcpyHostToDevice);
+
 	GRID_SIZE = AGENT_NO%BLOCK_SIZE==0 ? 
 		AGENT_NO/BLOCK_SIZE : AGENT_NO/BLOCK_SIZE + 1;
+
 }
 
 void readRandDebug(float *devRandDebug, std::string str1, std::string str2){
@@ -209,8 +220,8 @@ void writeRandDebug(int i, float* devRandDebug){
 				randDebugOut
 					<<std::setw(4)
 					<<i<< "\t"
-					<<hostRandDebug[STRIP*i]<<" \t"
-					<<hostRandDebug[STRIP*i+1]<<" \t"
+					<<hostRandDebug[STRIP*i]<<"\t"
+					<<hostRandDebug[STRIP*i+1]<<"\t"
 					<<std::endl;		
 				randDebugOut.flush();		
 			}		
