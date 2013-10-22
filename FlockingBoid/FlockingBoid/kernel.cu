@@ -39,11 +39,11 @@ void initOnDevice(float *x_pos, float *y_pos){
 	size_t floatDataSize = AGENT_NO*sizeof(float);
 	cudaMemcpy(x_pos, x_pos_h, floatDataSize, cudaMemcpyHostToDevice);
 	cudaMemcpy(y_pos, y_pos_h, floatDataSize, cudaMemcpyHostToDevice);
-	cudaCheckErrors("initOnDevice");
+	getLastCudaError("initOnDevice");
 }
 __global__ void addAgentsOnDevice(BoidModel *gm, float *x_pos, float *y_pos){
 	const int idx = threadIdx.x + blockIdx.x * blockDim.x;
-	if (idx < AGENT_NO_D){
+	if (idx < AGENT_NO_D){ // user init step
 		PreyBoid *ag = new PreyBoid();
 		ag->loc.x = x_pos[idx];
 		ag->loc.y = y_pos[idx];
@@ -55,6 +55,9 @@ __global__ void addAgentsOnDevice(BoidModel *gm, float *x_pos, float *y_pos){
 		gm->addToScheduler(ag, idx);
 		gm->addToWorld(ag, idx);
 	}
+	gm->getScheduler()->setAssignments(
+		gm->getWorld()->getNeighborIdx()
+		);
 }
 
 void test1(){
@@ -153,7 +156,7 @@ void readConfig(){
 			BLOCK_SIZE = atoi(p);
 		}
 	}
-	cudaCheckErrors("readConfig");
+	getLastCudaError("readConfig");
 	free(cstr);
 	fin.close();
 
@@ -264,7 +267,7 @@ int main(int argc, char *argv[]){
 	addAgentsOnDevice<<<gSize, BLOCK_SIZE>>>(model, x_pos, y_pos);
 
 	//schUtil::scheduleRepeatingAllAgents<<<1, BLOCK_SIZE>>>(model);
-	cudaCheckErrors("before going into the big loop");
+	getLastCudaError("before going into the big loop");
 	printf("steps: %d\n", STEPS);
 
 	std::ifstream fin("randDebugOut2.txt");
@@ -286,7 +289,7 @@ int main(int argc, char *argv[]){
 		writeRandDebug(i, devRandDebug);
 	}
 	GSimVisual::getInstance().stop();
-	cudaCheckErrors("finished");
+	getLastCudaError("finished");
 	//system("PAUSE");
 	return 0;
 }

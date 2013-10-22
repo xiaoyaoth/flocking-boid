@@ -167,6 +167,8 @@ void BoidModel::allocOnDevice(){
 	worldH->allocOnDevice();
 	cudaMalloc((void**)&world, sizeof(Continuous2D));
 	cudaMemcpy(world, worldH, sizeof(Continuous2D), cudaMemcpyHostToDevice);
+	//cudaMemcpyToSymbol(this->schedulerH->assignments, &this->worldH->neighborIdx,
+		//sizeof(int), 0, cudaMemcpyDeviceToDevice);
 	//init GRandomGen
 	//rgenH = new GRandomGen();
 	//rgenH->allocOnDevice();
@@ -174,7 +176,7 @@ void BoidModel::allocOnDevice(){
 	//cudaMemcpy(rgen, rgenH, sizeof(GRandomGen), cudaMemcpyHostToDevice);
 	//int gSize = GRID_SIZE;
 	//rgenUtil::initStates<<<gSize, BLOCK_SIZE>>>(rgen, 1234);
-	cudaCheckErrors("BoidModel()");
+	getLastCudaError("BoidModel()");
 }
 void BoidModel::allocOnHost(){
 	GModel::allocOnHost();
@@ -380,8 +382,8 @@ __device__ float2d_t PreyBoid::avoidance(const Continuous2D *world){
 		}
 		nnc = world->nextNeighbor2();
 	}
-#endif
 	const iterInfo &info = infoArray[threadIdx.x];
+#endif
 	if (count > 0){
 		x /= count;
 		y /= count;

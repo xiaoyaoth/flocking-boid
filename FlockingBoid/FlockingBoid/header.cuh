@@ -129,30 +129,29 @@ namespace SCHEDULE_CONSTANT{
 	static const float EPSILON = 1.0;
 }
 
-#define CU_CHECK( call) {											\
-	cudaError err = call;											\
-	if( VERBOSE == 1)  \
-	printf("CU_CHECK: %d-%s in line %i.\n", err, 					\
-	cudaGetErrorString(err), __LINE__);								\
-	if( cudaSuccess != err) {										\
-	fprintf(stderr, "Cuda error in file '%s' in line %i : %s.\n",	\
-	__FILE__, __LINE__, cudaGetErrorString( err) );					\
-	exit(EXIT_FAILURE);												\
-	} }
+#define checkCudaErrors(err)           __checkCudaErrors (err, __FILE__, __LINE__)
+inline void __checkCudaErrors( cudaError err, const char *file, const int line )
+{
+	if( cudaSuccess != err) {
+		fprintf(stderr, "%s(%i) : CUDA Runtime API error %d: %s.\n",
+			file, line, (int)err, cudaGetErrorString( err ) );
+		exit(-1);
+	}
+}
 
-#define cudaCheckErrors(msg) \
-    do { \
-        cudaError_t __err = cudaGetLastError(); \
-		if( VERBOSE == 1)  \
-		printf("cudaCheckErrors: %s: \n\t%d-%s in line %i.\n", msg, \
-		__err, cudaGetErrorString(__err), __LINE__);	\
-        if (__err != cudaSuccess) { \
-            fprintf(stderr, "Fatal error: %s (%s at %s:%d)\n", \
-                msg, cudaGetErrorString(__err), \
-                __FILE__, __LINE__); \
-            fprintf(stderr, "*** FAILED - ABORTING\n"); \
-            exit(1); \
-        } \
-    } while (0)
+// This will output the proper error string when calling cudaGetLastError
+#define getLastCudaError(msg)      __getLastCudaError (msg, __FILE__, __LINE__)
+inline void __getLastCudaError( const char *errorMessage, const char *file, const int line )
+{
+	cudaError_t err = cudaGetLastError();
+	if( VERBOSE == 1) 
+		printf("getLastCudaError: %s: \n\t%d-%s in line %i.\n", errorMessage,
+		err, cudaGetErrorString(err), line);
+	if( cudaSuccess != err) {
+		fprintf(stderr, "%s(%i) : getLastCudaError() CUDA error : %s : (%d) %s.\n",
+			file, line, errorMessage, (int)err, cudaGetErrorString( err ) );
+		exit(-1);
+	}
+}
 
 #endif
