@@ -129,7 +129,7 @@ namespace SCHEDULE_CONSTANT{
 	static const float EPSILON = 1.0;
 }
 
-#define checkCudaErrors(err)           __checkCudaErrors (err, __FILE__, __LINE__)
+#define checkCudaErrors(err)	__checkCudaErrors(err, __FILE__, __LINE__)
 inline void __checkCudaErrors( cudaError err, const char *file, const int line )
 {
 	if( cudaSuccess != err) {
@@ -140,7 +140,7 @@ inline void __checkCudaErrors( cudaError err, const char *file, const int line )
 }
 
 // This will output the proper error string when calling cudaGetLastError
-#define getLastCudaError(msg)      __getLastCudaError (msg, __FILE__, __LINE__)
+#define getLastCudaError(msg)	__getLastCudaError (msg, __FILE__, __LINE__)
 inline void __getLastCudaError( const char *errorMessage, const char *file, const int line )
 {
 	cudaError_t err = cudaGetLastError();
@@ -150,6 +150,7 @@ inline void __getLastCudaError( const char *errorMessage, const char *file, cons
 	if( cudaSuccess != err) {
 		fprintf(stderr, "%s(%i) : getLastCudaError() CUDA error : %s : (%d) %s.\n",
 			file, line, errorMessage, (int)err, cudaGetErrorString( err ) );
+		system("PAUSE");
 		exit(-1);
 	}
 }

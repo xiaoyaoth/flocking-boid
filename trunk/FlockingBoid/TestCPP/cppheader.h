@@ -69,6 +69,6 @@ typedef struct float_2d
 	}
 } float2d_t;
 
-
+typedef struct shared_info sinfo_t;
 
 #endif

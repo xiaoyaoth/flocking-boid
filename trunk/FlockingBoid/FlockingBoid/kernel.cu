@@ -280,7 +280,7 @@ int main(int argc, char *argv[]){
 
 	GSimVisual::getInstance().setWorld(model_h->world);
 	for (int i=0; i<STEPS; i++){
-		//printf("STEP:%d\n", i);
+		printf("STEP:%d\n", i);
 		//std::getline(fin, str1);
 		//std::getline(fin, str2);
 		//readRandDebug(devRandDebug, str1, str2);
