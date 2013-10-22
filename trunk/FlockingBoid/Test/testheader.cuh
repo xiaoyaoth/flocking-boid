@@ -101,10 +101,10 @@ namespace CONSTANT{
 	exit(EXIT_FAILURE);												\
 	} }
 
-#define cudaCheckErrors(msg) \
+#define getLastCudaError(msg) \
     do { \
         cudaError_t __err = cudaGetLastError(); \
-		printf("cudaCheckErrors: %s: \n\t%d-%s in line %i.\n", msg, \
+		printf("getLastCudaError: %s: \n\t%d-%s in line %i.\n", msg, \
 		__err, cudaGetErrorString(__err), __LINE__);	\
         if (__err != cudaSuccess) { \
             fprintf(stderr, "Fatal error: %s (%s at %s:%d)\n", \

@@ -49,7 +49,7 @@ private:
 			glBufferData( GL_PIXEL_UNPACK_BUFFER_ARB, this->height*this->height*sizeof(uchar4),
 				NULL, GL_DYNAMIC_DRAW_ARB );
 			cudaGraphicsGLRegisterBuffer(&resource, bufferObj, cudaGraphicsMapFlagsNone);
-			cudaCheckErrors("cudaGraphicsGLRegisterBuffer");
+			getLastCudaError("cudaGraphicsGLRegisterBuffer");
 
 			glutDisplayFunc(drawFunc);
 			glutIdleFunc(idleFunc);
@@ -62,14 +62,14 @@ private:
 		uchar4* devPtr;
 		size_t size;
 		cudaGraphicsMapResources(1, &vis.resource, NULL);
-		cudaCheckErrors("cudaGraphicsMapResources");
+		getLastCudaError("cudaGraphicsMapResources");
 		cudaGraphicsResourceGetMappedPointer( (void**)&devPtr, &size, vis.resource);
-		cudaCheckErrors("cudaGraphicsResourceGetMappedPointer");
+		getLastCudaError("cudaGraphicsResourceGetMappedPointer");
 		
 		visUtil::paint<<<256, 256>>>(devPtr, vis.world);
 
 		cudaGraphicsUnmapResources(1, &vis.resource, NULL);
-		cudaCheckErrors("cudaGraphicsUnmapResources");
+		getLastCudaError("cudaGraphicsUnmapResources");
 
 		glutPostRedisplay();
 	}
@@ -83,17 +83,17 @@ private:
 		uchar4* devPtr;
 		size_t size;
 		cudaGraphicsMapResources(1, &vis.resource, NULL);
-		cudaCheckErrors("cudaGraphicsMapResources");
+		getLastCudaError("cudaGraphicsMapResources");
 		cudaGraphicsResourceGetMappedPointer( (void**)&devPtr, &size, vis.resource);
-		cudaCheckErrors("cudaGraphicsResourceGetMappedPointer");
+		getLastCudaError("cudaGraphicsResourceGetMappedPointer");
 		cudaMemset(devPtr, 0, size);
-		cudaCheckErrors("cudaMemset");
+		getLastCudaError("cudaMemset");
 
 		int gSize = GRID_SIZE;
 		visUtil::paint<<<gSize, BLOCK_SIZE>>>(devPtr, vis.world);
 
 		cudaGraphicsUnmapResources(1, &vis.resource, NULL);
-		cudaCheckErrors("cudaGraphicsUnmapResources");
+		getLastCudaError("cudaGraphicsUnmapResources");
 
 		glDrawPixels( vis.height, vis.height, GL_RGBA,GL_UNSIGNED_BYTE, 0 );
 
