@@ -369,6 +369,7 @@ __device__ float2d_t PreyBoid::avoidance(const Continuous2D *world){
 		nnc = world->nextNeighbor(info);
 	}
 #else
+	const iterInfo &info = infoArray[threadIdx.x];
 	NextNeighborControl nnc = world->nextNeighborInit2(this, this->model->neighborhood);
 	while(nnc != STOP){
 		PreyBoid *other = (PreyBoid*)world->obtainAgentByIterInfo2();
@@ -381,8 +382,8 @@ __device__ float2d_t PreyBoid::avoidance(const Continuous2D *world){
 			y += dy/(sqrDist*sqrDist + 1);
 		}
 		nnc = world->nextNeighbor2();
+
 	}
-	const iterInfo &info = infoArray[threadIdx.x];
 #endif
 	if (count > 0){
 		x /= count;

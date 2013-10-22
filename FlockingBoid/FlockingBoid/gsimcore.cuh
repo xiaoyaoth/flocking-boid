@@ -9,6 +9,9 @@
 #include <thrust\transform.h>
 #include <curand_kernel.h>
 
+#define TRIAL_NEIGHBOR	1
+#define TRIAL_ZCODE		1
+
 //class delaration
 class GSteppalbe;
 class GAgent;
@@ -44,12 +47,10 @@ typedef struct iter_info_per_thread
 	//	printf("=====================\n");
 	//}
 } iterInfo;
-enum NextNeighborControl{CONTINUE, STOP, FOUND};
-#define TRIAL_NEIGHBOR	1
-#define TRIAL_ZCODE		1
 #if TRIAL_NEIGHBOR == 1
 extern __shared__ iterInfo infoArray[];
 #endif
+enum NextNeighborControl{CONTINUE, STOP, FOUND};
 
 namespace c2dUtil{
 	void gen_hash_kernel(int *hash, Continuous2D *c2d);
@@ -362,6 +363,8 @@ __device__ int Continuous2D::boarderPrimitive(iterInfo &info) const{
 		return AGENT_NO_D-1;
 	//check something about next cell and next...
 	cellIdBoarder++;
+	if (cellIdBoarder == CELL_NO_D-1)
+		return AGENT_NO_D-1;
 	ptrBoarder = cellIdx[cellIdBoarder];
 	while(ptrBoarder == -1){
 		cellIdBoarder++;
@@ -495,6 +498,7 @@ __device__ GAgent* Continuous2D::obtainAgentByIterInfo2() const{
 		const int agIdx = this->neighborIdx[ptr];
 		return this->allAgents[agIdx];
 	}
+	printf("%d\n", ptr);
 	return NULL;
 }
 #endif
@@ -626,9 +630,9 @@ __global__ void c2dUtil::gen_hash_kernel(int *hash, Continuous2D *c2d)
 	GAgent *ag = c2d->obtainAgentPerThread();
 	if(ag != NULL) {
 		int idx = ag->getAgId();
+		c2d->neighborIdx[idx] = idx;
 		hash[idx] = (int)(ag->loc.x/CLEN_X) + 
 			CNO_PER_DIM * (int)(ag->loc.y/CLEN_Y);
-		c2d->neighborIdx[idx] = ag->getAgId();
 	}
 }
 #else
@@ -696,16 +700,16 @@ void c2dUtil::genNeighbor(Continuous2D *world, Continuous2D *world_h)
 	static int iterCount = 0;
 	int bSize = BLOCK_SIZE;
 	int gSize = GRID_SIZE;
-	if (AGENT_NO%bSize != 0)
-		gSize++;
 
 	int *hash;
 	cudaMalloc((void**)&hash, AGENT_NO*sizeof(int));
 	cudaMemset(world_h->cellIdx, 0xff, CELL_NO*sizeof(int));
 	getLastCudaError("genNeighbor:cudaMalloc:hash");
 	gen_hash_kernel<<<gSize, bSize>>>(hash, world);
+	getLastCudaError("genNeighbor:gen_hash_kernel");
 	sort_hash_kernel(hash, world_h->neighborIdx);
 	gen_cellIdx_kernel<<<gSize, bSize>>>(hash, world);
+	
 
 	//debug
 	if (iterCount == SELECTION && FILE_GEN == 1){

@@ -35,9 +35,15 @@ typedef struct iter_info_per_thread
 
 	float range;
 } iterInfo;
-iterInfo *infoArray;
+
+struct shared_info : public iterInfo{
+	int a;
+	float b;
+	char c;
+};
+
+sinfo_t *infoArray;
 int tid = 0;
-GAgent *partition;
 float *randDebugArray;
 const int STRIP = 5;
 enum NextNeighborControl{CONTINUE, STOP, FOUND};
@@ -365,6 +371,8 @@ int Continuous2D::boarderPrimitive(iterInfo &info) const{
 	else if (cellIdBoarder == CELL_NO-1) // if last cell if not empty
 		return AGENT_NO-1;
 	cellIdBoarder++;
+	if (cellIdBoarder == CELL_NO-1)
+		return AGENT_NO-1;
 	ptrBoarder = cellIdx[cellIdBoarder];
 	while(ptrBoarder == -1){
 		cellIdBoarder++;
@@ -372,6 +380,8 @@ int Continuous2D::boarderPrimitive(iterInfo &info) const{
 			return AGENT_NO-1;
 		ptrBoarder = cellIdx[cellIdBoarder];
 	}
+	if (cellIdBoarder >= CELL_NO)
+		printf("%d, %d\n", ptrBoarder, cellIdBoarder);
 	return ptrBoarder-1;
 #else
 	int cellIdBoarder = info.cellCur.y * CNO_PER_DIM + info.cellDR.x + 1;
@@ -777,8 +787,9 @@ void stepAllAgents(const GModel *model){
 
 void test2() {
 	printf("size of iterInfo: %d\n", sizeof(iterInfo));
+	printf("size of sinfo_t: %d\n", sizeof(sinfo_t));
 	randDebugArray = (float*)malloc(AGENT_NO*STRIP*sizeof(float));
-	infoArray = (iterInfo*)malloc(AGENT_NO*sizeof(iterInfo));
+	infoArray = (sinfo_t*)malloc(AGENT_NO*sizeof(sinfo_t));
 
 	GModel *model = new GModel();
 	model->allocOnHost();
