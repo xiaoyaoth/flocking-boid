@@ -15,7 +15,7 @@
 #define TRIAL_GEOAGENT 1
 #define TRIAL_ZCODE 1
 
-#define SELECTION 100
+#define SELECTION 0
 #define FILE_GEN 0
 
 class GModel;
@@ -780,9 +780,9 @@ void writeRandDebugArray(int i){
 				<<j<<"\t"
 				<<randDebugArray[STRIP*j]<<"\t"
 				<<randDebugArray[STRIP*j+1]<<"\t"
-				//<<randDebugArray[STRIP*j+2]<<"\t"
-				//<<randDebugArray[STRIP*j+3]<<"\t"
-				//<<randDebugArray[STRIP*j+4]<<"\t"
+				<<randDebugArray[STRIP*j+2]<<"\t"
+				<<randDebugArray[STRIP*j+3]<<"\t"
+				<<randDebugArray[STRIP*j+4]<<"\t"
 				<<std::endl;
 			randDebugOut3.flush();
 		}

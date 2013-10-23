@@ -6,7 +6,7 @@
 #include "gsimapp_header.cuh"
 
 __device__ float *randDebug;
-#define STRIP 2
+#define STRIP 5
 
 class BoidModel : public GModel{
 public:
@@ -255,7 +255,10 @@ __device__ float2d_t PreyBoid::randomness(GRandomGen *gen){
 	float x = randDebug[STRIP*idx];
 	float y = randDebug[STRIP*idx+1];
 	float l = sqrt(x*x + y*y);
-	return float2d_t(0.05*x/l, 0.05*y/l);
+	float2d_t res;
+	res.x = 0.05*x/l;
+	res.y = 0.05*y/l;
+	return res;
 }
 __device__ float2d_t PreyBoid::consistency(const Continuous2D *world){
 	float x = 0;
@@ -292,7 +295,11 @@ __device__ float2d_t PreyBoid::consistency(const Continuous2D *world){
 		x /= count;
 		y /= count;
 	}
-	return float2d_t(x,y);
+	randDebug[STRIP*this->data->id+2] = infoArray[threadIdx.x].count;
+	float2d_t res;
+	res.x = x;
+	res.y = y;
+	return res;
 }
 __device__ float2d_t PreyBoid::cohesion(const Continuous2D *world){
 	float x = 0;
@@ -327,7 +334,11 @@ __device__ float2d_t PreyBoid::cohesion(const Continuous2D *world){
 		x /= count;
 		y /= count;
 	}
-	return float2d_t(-x/10,-y/10);
+	randDebug[STRIP*this->data->id+3] = infoArray[threadIdx.x].count;
+	float2d_t res;
+	res.x = -x/10;
+	res.y = -y/10;
+	return res;
 }
 __device__ float2d_t PreyBoid::avoidance(const Continuous2D *world){
 	float x = 0;
@@ -369,7 +380,11 @@ __device__ float2d_t PreyBoid::avoidance(const Continuous2D *world){
 		x /= count;
 		y /= count;
 	}
-	return float2d_t(400*x, 400*y);
+	randDebug[STRIP*this->data->id+4] = infoArray[threadIdx.x].count;
+	float2d_t res;
+	res.x = 400*x;
+	res.y = 400*y;
+	return res;
 }
 //__device__ float2d_t PreyBoid::flee(Continuous2D *world){return float2d_t(0,0);}
 //__device__ float2d_t PreyBoid::searchFood(Continuous2D *world){return float2d_t(0,0);}
@@ -427,11 +442,11 @@ __device__ void PredatorBoid::decelerate(){return;}
 __device__ bool PredatorBoid::hungry(){return true;}
 __device__ void PredatorBoid::feast(){return;}
 __device__ bool PredatorBoid::starved(){return true;}
-__device__ float2d_t PredatorBoid::randomness(GRandomGen *gen){return float2d_t(0,0);}
-__device__ float2d_t PredatorBoid::huntPrimitive(){return float2d_t(0,0);}
-__device__ float2d_t PredatorBoid::huntByLockOnNearest(){return float2d_t(0,0);}
-__device__ float2d_t PredatorBoid::huntByLockOnRandom(){return float2d_t(0,0);}
-__device__ float2d_t PredatorBoid::stray(){return float2d_t(0,0);}
+__device__ float2d_t PredatorBoid::randomness(GRandomGen *gen){return float2d_t();}
+__device__ float2d_t PredatorBoid::huntPrimitive(){return float2d_t();}
+__device__ float2d_t PredatorBoid::huntByLockOnNearest(){return float2d_t();}
+__device__ float2d_t PredatorBoid::huntByLockOnRandom(){return float2d_t();}
+__device__ float2d_t PredatorBoid::stray(){return float2d_t();}
 __device__ void PredatorBoid::step(GModel *model){}
 
 #endif
