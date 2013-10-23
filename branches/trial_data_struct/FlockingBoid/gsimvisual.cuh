@@ -1,7 +1,7 @@
 #ifndef GSIMVISUAL_H
 #define GSIMVISUAL_H
 
-#include "header.cuh"
+#include "gsimlib_header.cuh"
 #include "common\book.h"
 #include "common\gl_helper.h"
 #include "cuda_gl_interop.h"
@@ -126,8 +126,8 @@ public:
 __global__ void visUtil::paint(uchar4 *devPtr, const Continuous2D *world){
 
 	GAgent *ag = world->obtainAgentPerThread();
-	int canvasX = (int)(ag->loc.x*256/1000);
-	int canvasY = (int)(ag->loc.y*256/1000);
+	int canvasX = (int)(ag->data->loc.x*256/1000);
+	int canvasY = (int)(ag->data->loc.y*256/1000);
 	int canvasIdx = canvasY*256 + canvasX;
 	const int idx = canvasIdx;
 	devPtr[idx].x = 0;

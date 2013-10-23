@@ -45,12 +45,17 @@ __global__ void addAgentsOnDevice(BoidModel *gm, float *x_pos, float *y_pos){
 	const int idx = threadIdx.x + blockIdx.x * blockDim.x;
 	if (idx < AGENT_NO_D){ // user init step
 		PreyBoid *ag = new PreyBoid();
-		ag->loc.x = x_pos[idx];
-		ag->loc.y = y_pos[idx];
+		ag->initData();
+		ag->data->loc.x = x_pos[idx];
+		ag->data->loc.y = y_pos[idx];
 		ag->time = 0;
 		ag->rank = 0;
 		ag->model = gm;
-		PreyBoid *dummy = new PreyBoid(ag);
+
+		PreyBoid *dummy = new PreyBoid();
+		dummy->initData();
+		dummy->model = gm;
+
 		ag->setDummy(dummy);
 		gm->addToScheduler(ag, idx);
 		gm->addToWorld(ag, idx);

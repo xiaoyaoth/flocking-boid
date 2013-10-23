@@ -1,7 +1,7 @@
 #ifndef GSIMCORE_H
 #define GSIMCORE_H
 
-#include "header.cuh"
+#include "gsimlib_header.cuh"
 #include <thrust\sort.h>
 #include <thrust\device_vector.h>
 #include <thrust\device_ptr.h>
@@ -33,19 +33,6 @@ typedef struct iter_info_per_thread
 	const GAgent *agent;
 
 	float range;
-
-	//__device__ __host__ void print(){
-	//	printf("======iter info======\n");
-	//	printf("agent_id: %d", ag_id);
-	//	printf("cellCur: ");
-	//	cellCur.print();
-	//	printf("\ncellUL: ");
-	//	cellUL.print();
-	//	printf("\ncellDR: ");
-	//	cellDR.print();
-	//	printf("\nptr: %d\ncellIdx_border: %d\n", ptr, boarder);
-	//	printf("=====================\n");
-	//}
 } iterInfo;
 #if TRIAL_NEIGHBOR == 1
 extern __shared__ iterInfo infoArray[];
@@ -80,31 +67,17 @@ public:
 class GAgent : public GSteppable{
 protected:
 	GAgent *dummy;
-	int ag_id;
+	__device__ int initId();
 public:
-	float2d_t loc;
-	__device__ GAgent(){
-		this->ag_id = threadIdx.x + blockIdx.x * blockDim.x;
-	}
-	__device__ GAgent(float2d_t loc){
-		this->ag_id = threadIdx.x + blockIdx.x * blockDim.x;
-		this->loc = loc;
-	}
-	__device__ GAgent(float x, float y){
-		this->ag_id = threadIdx.x + blockIdx.x * blockDim.x;
-		this->loc.x = x;
-		this->loc.y = y;
-	}
-	__device__ GAgent(GAgent *ag){ //prepared for creating the dummy;
-		this->ag_id = ag->ag_id;
-		this->loc = ag->loc;
-		this->dummy = ag;
-	}
+	GAgentData_t *data;
 	__device__ void allocOnDevice();
 	__device__ int getAgId() const;
 	__device__ void setDummy(GAgent *dummy);
 	__device__ GAgent* getDummy() const;
 	__device__ virtual void step(GModel *model) = 0;
+	__device__ virtual void initData() = 0;
+	__device__ virtual void initData(GAgentData_t *dummyData) = 0;
+	__device__ virtual void linkData() = 0;
 };
 class GIterativeAgent : public GAgent{
 private:
@@ -119,6 +92,9 @@ public:
 			this->interval = interval;
 	}
 	__device__ void step(GModel *model);
+	__device__ void initData(){}
+	__device__ void linkData(){}
+	__device__ void initData(GAgentData_t *dummyData){}
 };
 class Continuous2D{
 private:
@@ -382,7 +358,7 @@ __device__ bool Continuous2D::foundPrimitive(iterInfo &info) const{
 	if (info.ptr < 0)
 		return false;
 	GAgent *other = this->allAgents[this->neighborIdx[info.ptr]];
-	float ds = tds(info.agent->loc, other->loc);
+	float ds = tds(info.agent->data->loc, other->data->loc);
 	if (ds < info.range){
 		info.count++;
 		return true;
@@ -466,7 +442,7 @@ __device__ NextNeighborControl Continuous2D::nextNeighbor2() const {
 __device__ NextNeighborControl Continuous2D::nextNeighborInit2(const GAgent* ag, 
 	const float range) const {
 	iterInfo &info = infoArray[threadIdx.x];
-	float2d_t pos = ag->loc;
+	float2d_t pos = ag->data->loc;
 	info.agent = ag;
 	info.ptr = -1;
 	info.boarder = -1;
@@ -503,14 +479,18 @@ __device__ GAgent* Continuous2D::obtainAgentByIterInfo2() const{
 }
 #endif
 //GAgent
+__device__ int GAgent::initId() {
+	return threadIdx.x + blockIdx.x * blockDim.x;
+}
 __device__ int	GAgent::getAgId() const {
-	return this->ag_id;
+	return this->data->id;
 }
 __device__ void GAgent::allocOnDevice(){
-	ag_id = threadIdx.x + blockIdx.x * blockDim.x;
+	this->data->id = threadIdx.x + blockIdx.x * blockDim.x;
 }
 __device__ void GAgent::setDummy(GAgent* dummy){
 	this->dummy = dummy;
+	dummy->dummy = this;
 }
 __device__ GAgent* GAgent::getDummy() const {
 	return this->dummy;
@@ -656,8 +636,8 @@ __global__ void c2dUtil::gen_hash_kernel(int *hash, Continuous2D *c2d)
 	GAgent *ag = c2d->obtainAgentPerThread();
 	if(ag != NULL) {
 		int idx = ag->getAgId();
-		int xhash = (int)(ag->loc.x/CLEN_X);
-		int yhash = (int)(ag->loc.y/CLEN_Y);
+		int xhash = (int)(ag->data->loc.x/CLEN_X);
+		int yhash = (int)(ag->data->loc.y/CLEN_Y);
 		hash[idx] = zcode(xhash, yhash);
 		c2d->neighborIdx[idx] = idx;
 	}
