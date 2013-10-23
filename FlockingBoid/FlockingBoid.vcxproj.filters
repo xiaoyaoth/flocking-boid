@@ -18,10 +18,13 @@
     <None Include="gsimapp_boid.cuh">
       <Filter>Model</Filter>
     </None>
-    <None Include="header.cuh">
+    <None Include="gsimvisual.cuh">
       <Filter>lib</Filter>
     </None>
-    <None Include="gsimvisual.cuh">
+    <None Include="gsimapp_header.cuh">
+      <Filter>Model</Filter>
+    </None>
+    <None Include="gsimlib_header.cuh">
       <Filter>lib</Filter>
     </None>
   </ItemGroup>
