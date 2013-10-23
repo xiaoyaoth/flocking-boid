@@ -230,6 +230,9 @@ void writeRandDebug(int i, float* devRandDebug){
 					<<i<< "\t"
 					<<hostRandDebug[STRIP*i]<<"\t"
 					<<hostRandDebug[STRIP*i+1]<<"\t"
+					<<hostRandDebug[STRIP*i+2]<<"\t"
+					<<hostRandDebug[STRIP*i+3]<<"\t"
+					<<hostRandDebug[STRIP*i+4]<<"\t"
 					<<std::endl;		
 				randDebugOut.flush();		
 			}		

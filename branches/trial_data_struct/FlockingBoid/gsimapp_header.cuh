@@ -32,6 +32,12 @@ typedef struct FoodBoidData : public BaseBoidData_t{
 	int respawnCount;
 } FoodBoidData_t;
 
+union BoidUnion {
+	BaseBoidData_t baseData;
+	PreyBoidData_t preyData;
+	FoodBoidData_t foodData;
+};
+
 namespace CONSTANT{
 	// CONSTANTS FOR PREY BOIDS
 	__device__ const float PREY_SENSE_RANGE_FOOD = 50;
