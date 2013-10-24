@@ -23,21 +23,23 @@ class GAgent;
 class Continuous2D;
 typedef struct GAgentData GAgentData_t;
 typedef struct PreyBoidData PreyBoidData_t;
-typedef union AgentDataUnion agUnion_t;
 
 struct GAgentData{
 	int ag_id;
 	float2d_t loc;
 	float2d_t lastd;
 	bool dead;
+	float2d_t momentum(){
+		return this->lastd;
+	}
 };
-struct PreyBoidData{
+struct PreyBoidData : public GAgentData{
 	int extra1;
 	float extra2;
 };
 union AgentDataUnion{
-	GAgentData_t m1;
-	PreyBoidData_t m2;
+	GAgentData_t agData;
+	PreyBoidData_t preyData;
 };
 
 typedef struct iter_info_per_thread
@@ -49,13 +51,16 @@ typedef struct iter_info_per_thread
 	int ptr;
 	int boarder;
 	int count;
-	const GAgentData_t *agData;
-	const agUnion_t unionData;
+	const GAgentData_t *agData; //subject agent data
+	AgentDataUnion unionData; //other agents' data
 	float range;
 } iterInfo;
 
 iterInfo *infoArray;
 int tid = 0;
+int bid = 0;
+int hit = 0;
+int nonhit = 0;
 float *randDebugArray;
 const int STRIP = 5;
 enum NextNeighborControl{CONTINUE, STOP, FOUND};
@@ -89,7 +94,6 @@ public:
 		this->model = ag->model;
 		this->dummy = ag;
 	}
-	float2d_t momentum();
 	float2d_t randomness(int idx);
 	float2d_t consistency(const Continuous2D *world);
 	float2d_t cohesion(const Continuous2D *world);
@@ -133,7 +137,7 @@ public:
 #elif TRIAL_NEIGHBOR == 1
 	NextNeighborControl nextNeighborInit2(const GAgent* ag, const int range) const;
 	NextNeighborControl nextNeighbor2() const;
-	GAgent* obtainAgentByIterInfo2() const; 
+	const GAgentData_t *obtainAgentDataByIterInfo2() const; 
 #endif
 #if TRIAL_GEOAGENT == 1
 	GAgent* obtainAgentByGeo(int i) const;
@@ -169,9 +173,6 @@ public:
 };
 
 int GAgent::agIdCount = 0;
-float2d_t GAgent::momentum(){
-	return this->data->lastd;
-}
 float2d_t GAgent::randomness(int idx){
 	float x = 1;
 	float y = 1;
@@ -205,8 +206,8 @@ float2d_t GAgent::consistency(const Continuous2D *world){
 #else
 	NextNeighborControl nnc = world->nextNeighborInit2(this, this->model->neighborhood);
 	while (nnc != STOP){
-		GAgent *other = (GAgent*)world->obtainAgentByIterInfo2();
-		if(!other->data->dead){
+		GAgentData_t *other = (GAgentData_t*)world->obtainAgentDataByIterInfo2();
+		if(!other->dead){
 			count++;
 			float2d_t m = other->momentum();
 			x += m.x;
@@ -246,11 +247,11 @@ float2d_t GAgent::cohesion(const Continuous2D *world){
 #else
 	NextNeighborControl nnc = world->nextNeighborInit2(this, this->model->neighborhood);
 	while (nnc != STOP){
-		GAgent *other = (GAgent*)world->obtainAgentByIterInfo2();
-		if (!other->data->dead){
+		GAgentData_t *other = (GAgentData_t*)world->obtainAgentDataByIterInfo2();
+		if (!other->dead){
 			count++;
-			x += world->tdx(this->data->loc.x, other->data->loc.x);
-			y += world->tdy(this->data->loc.y, other->data->loc.y);
+			x += world->tdx(this->data->loc.x, other->loc.x);
+			y += world->tdy(this->data->loc.y, other->loc.y);
 		}
 		nnc = world->nextNeighbor2();
 	}
@@ -288,11 +289,11 @@ float2d_t GAgent::avoidance(const Continuous2D *world){
 #else
 	NextNeighborControl nnc = world->nextNeighborInit2(this, this->model->neighborhood);
 	while(nnc != STOP){
-		GAgent *other = (GAgent*)world->obtainAgentByIterInfo2();
-		if (!other->data->dead){
+		GAgentData_t *other = (GAgentData_t*)world->obtainAgentDataByIterInfo2();
+		if (!other->dead){
 			count++;
-			float dx = world->tdx(this->data->loc.x, other->data->loc.x);
-			float dy = world->tdy(this->data->loc.y, other->data->loc.y);
+			float dx = world->tdx(this->data->loc.x, other->loc.x);
+			float dy = world->tdy(this->data->loc.y, other->loc.y);
 			float sqrDist = dx*dx + dy*dy;
 			x += dx/(sqrDist*sqrDist + 1);
 			y += dy/(sqrDist*sqrDist + 1);
@@ -319,7 +320,7 @@ void GAgent::step(const GModel *model){
 	float2d_t cohes = this->cohesion(world);
 	float2d_t consi = this->consistency(world);
 	//float2d_t rdnes = this->randomness(model->rgen);
-	float2d_t momen = this->momentum();
+	float2d_t momen = this->data->momentum();
 	float dx = 
 		cohes.x * boidModel->cohesion +
 		avoid.x * boidModel->avoidance +
@@ -579,11 +580,16 @@ NextNeighborControl Continuous2D::nextNeighborInit2(const GAgent* ag,
 		else
 			return this->nextNeighbor2();
 }
-GAgent* Continuous2D::obtainAgentByIterInfo2() const{
+const GAgentData_t *Continuous2D::obtainAgentDataByIterInfo2() const{
 	int ptr = infoArray[tid].ptr;
+	if (ptr>=bid*256 && ptr<(bid+1)*256){
+		hit++;
+		return (GAgentData_t*)&infoArray[ptr].unionData;
+	}
 	if (ptr<AGENT_NO && ptr>=0){
+		nonhit++;
 		const int agIdx = this->neighborIdx[ptr];
-		return this->allAgents[agIdx];
+		return this->allAgents[agIdx]->data;
 	}
 	return NULL;
 }
@@ -788,6 +794,8 @@ void writeRandDebugArray(int i){
 		}
 		randDebugOut3.close();
 		std::cout<<std::endl;
+		std::cout<<"hit: "<<hit<<std::endl;
+		std::cout<<"non-hit: "<<nonhit<<std::endl;
 		system("PAUSE");
 		exit(1);
 	}
@@ -799,6 +807,12 @@ void swapDummy(Continuous2D *world){
 		world->allAgents[i] = ag->dummy;
 	}
 }
+void setupSharedInfo(const GModel *model){
+	for (int i=0; i<AGENT_NO; i++){
+		GAgent *ag = model->world->obtainAgentByGeo(i);
+		infoArray[i].unionData.agData = *ag->data;
+	}
+}
 void stepAllAgents(const GModel *model){
 	for(int i=0; i<AGENT_NO; i++){
 #if TRIAL_GEOAGENT == 0
@@ -808,6 +822,7 @@ void stepAllAgents(const GModel *model){
 #endif
 		ag->step(model);
 		tid++;
+		bid = tid/256;
 	}
 	tid=0;
 }
@@ -841,10 +856,13 @@ void test2() {
 		//std::getline(fin, str2);
 		//initRandDebugArray(str1, str2);
 		//queryNeighbor(model->world);
+		setupSharedInfo(model);
 		stepAllAgents(model);
 		swapDummy(model->world);
 		writeRandDebugArray(i);
 	}
+
+	
 }
 int main(){ 
 	int start = GetTickCount();
@@ -854,4 +872,5 @@ int main(){
 	std::cout<<"Took "<<diff<<" ms"<<std::endl;
 	system("PAUSE");
 	return 0;
+	AgentDataUnion *temp = (AgentDataUnion*)&infoArray[0];
 }
