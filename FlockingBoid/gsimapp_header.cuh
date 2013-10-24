@@ -12,6 +12,9 @@ typedef struct BaseBoidData : public GAgentData_t{
 	float DEFAULT_SPEED;
 	BoidType btype;
 	BoidState bstate;
+	__device__ float2d_t momentum(){
+		return this->lastd;
+	}
 } BaseBoidData_t;
 
 typedef struct PreyBoidData : public BaseBoidData_t {
@@ -32,7 +35,8 @@ typedef struct FoodBoidData : public BaseBoidData_t{
 	int respawnCount;
 } FoodBoidData_t;
 
-union BoidUnion {
+union dataUnion {
+	GAgentData_t agData;
 	BaseBoidData_t baseData;
 	PreyBoidData_t preyData;
 	FoodBoidData_t foodData;

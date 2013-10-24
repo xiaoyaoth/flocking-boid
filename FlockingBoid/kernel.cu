@@ -64,7 +64,18 @@ __global__ void addAgentsOnDevice(BoidModel *gm, float *x_pos, float *y_pos){
 		gm->getWorld()->getNeighborIdx()
 		);
 }
-
+__global__ void setupDataUnion(BoidModel* gm){
+	const int idx = threadIdx.x * blockIdx.x * blockDim.x;
+	GScheduler *sch = gm->getScheduler();
+	dataUnion *unionArray = (dataUnion*)&infoArray[blockDim.x];
+	if (idx < AGENT_NO_D){
+		GAgent *ag = sch->obtainAgentPerThread();
+		dataUnion &data = unionArray[threadIdx.x];
+		PreyBoidData_t *preyData = (PreyBoidData_t*)ag->data;
+		data.preyData = *preyData;
+		printf("%d %d", data.preyData.btype, ag->data->id);
+	}
+}
 void test1(){
 	int gSize = GRID_SIZE;
 	printf("sizeof(GModel*): %d\n", sizeof(GModel*));
@@ -245,10 +256,9 @@ void writeRandDebug(int i, float* devRandDebug){
 
 void oneStep(BoidModel *model, BoidModel *model_h){
 	int gSize = GRID_SIZE;
-	size_t sizeOfSmem = BLOCK_SIZE*sizeof(iterInfo);
+	size_t sizeOfSmem = BLOCK_SIZE * (sizeof(iterInfo) + sizeof(dataUnion));
 	c2dUtil::genNeighbor(model_h->world, model_h->worldH);
 	schUtil::step<<<gSize, BLOCK_SIZE, sizeOfSmem>>>(model);
-
 	c2dUtil::swapAgentsInWorld<<<gSize, BLOCK_SIZE>>>(model_h->world);
 	schUtil::swapAgentsInScheduler<<<gSize, BLOCK_SIZE>>>(model);
 }

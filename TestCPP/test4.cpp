@@ -37,7 +37,7 @@ struct PreyBoidData : public GAgentData{
 	int extra1;
 	float extra2;
 };
-union AgentDataUnion{
+union dataUnion{
 	GAgentData_t agData;
 	PreyBoidData_t preyData;
 };
@@ -52,7 +52,6 @@ typedef struct iter_info_per_thread
 	int boarder;
 	int count;
 	const GAgentData_t *agData; //subject agent data
-	AgentDataUnion unionData; //other agents' data
 	float range;
 } iterInfo;
 
@@ -584,7 +583,9 @@ const GAgentData_t *Continuous2D::obtainAgentDataByIterInfo2() const{
 	int ptr = infoArray[tid].ptr;
 	if (ptr>=bid*256 && ptr<(bid+1)*256){
 		hit++;
-		return (GAgentData_t*)&infoArray[ptr].unionData;
+		dataUnion *unionArray = (dataUnion*)&infoArray[AGENT_NO];
+		dataUnion &dataElem = unionArray[ptr];
+		return (GAgentData_t*)&dataElem;
 	}
 	if (ptr<AGENT_NO && ptr>=0){
 		nonhit++;
@@ -810,7 +811,8 @@ void swapDummy(Continuous2D *world){
 void setupSharedInfo(const GModel *model){
 	for (int i=0; i<AGENT_NO; i++){
 		GAgent *ag = model->world->obtainAgentByGeo(i);
-		infoArray[i].unionData.agData = *ag->data;
+		dataUnion *unionArray = (dataUnion*)&infoArray[AGENT_NO];
+		unionArray[i].agData = *ag->data;
 	}
 }
 void stepAllAgents(const GModel *model){
@@ -829,8 +831,9 @@ void stepAllAgents(const GModel *model){
 
 void test2() {
 	printf("size of iterInfo: %d\n", sizeof(iterInfo));
+	printf("size of dataUnion: %d\n", sizeof(dataUnion));
 	randDebugArray = (float*)malloc(AGENT_NO*STRIP*sizeof(float));
-	infoArray = (iterInfo*)malloc(AGENT_NO*sizeof(iterInfo));
+	infoArray = (iterInfo*)malloc(AGENT_NO*sizeof(iterInfo)+AGENT_NO*sizeof(dataUnion));
 
 	GModel *model = new GModel();
 	model->allocOnHost();
@@ -872,5 +875,5 @@ int main(){
 	std::cout<<"Took "<<diff<<" ms"<<std::endl;
 	system("PAUSE");
 	return 0;
-	AgentDataUnion *temp = (AgentDataUnion*)&infoArray[0];
+	dataUnion *temp = (dataUnion*)&infoArray[0];
 }
