@@ -17,6 +17,7 @@ __constant__ int BOARDER_D_D;	//copied from host
 __constant__ int CNO_PER_DIM;	//(int)pow((float)2, DISCRETI)
 __constant__ float CLEN_X;		//(float)(BOARDER_R-BOARDER_L)/CNO_PER_DIM;
 __constant__ float CLEN_Y;		//(float)(BOARDER_D-BOARDER_U)/CNO_PER_DIM;
+//__constant__ int SHARED_SCALE_D;//copied from host
 
 int CELL_NO;		//CNO_PER_DIM * CNO_PER_DIM;
 int DISCRETI;		//read from config
@@ -27,7 +28,7 @@ int BOARDER_U_H;	//read from config
 int BOARDER_D_H;	//read from config
 int AGENT_NO;		//read from config
 int STEPS;			//read from config
-
+//int SHARED_SCALE_H;	//read from config
 int SELECTION;		//read from config
 bool VISUALIZE;		//read from config
 int VERBOSE;		//read from config
@@ -77,11 +78,11 @@ typedef struct float_2d
 		printf("(%f, %f)", x, y);
 	}
 } float2d_t;
-
 typedef struct GAgentData{
 	int id;
 	float2d_t loc;
 } GAgentData_t;
+union dataUnion;
 
 namespace SCHEDULE_CONSTANT{
 	static const float EPOCH = 0.0;
@@ -89,8 +90,6 @@ namespace SCHEDULE_CONSTANT{
 	static const float AFTER_SIMULTION = FLT_MAX;
 	static const float EPSILON = 1.0;
 }
-
-
 
 #define checkCudaErrors(err)	__checkCudaErrors(err, __FILE__, __LINE__)
 inline void __checkCudaErrors( cudaError err, const char *file, const int line )

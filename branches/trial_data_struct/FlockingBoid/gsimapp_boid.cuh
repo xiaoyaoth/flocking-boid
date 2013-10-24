@@ -264,33 +264,18 @@ __device__ float2d_t PreyBoid::consistency(const Continuous2D *world){
 	float x = 0;
 	float y = 0;
 	int count = 0;
-
-#if TRIAL_NEIGHBOR == 0
-	iterInfo info;
-	NextNeighborControl nnc = world->nextNeighborInit(this, this->model->neighborhood, info);
-	while (nnc != STOP){
-		PreyBoid *other = (PreyBoid*)world->obtainAgentByIterInfo(info.ptr);
-		if(!other->dead){
-			count++;
-			float2d_t m = other->momentum();
-			x += m.x;
-			y += m.y;
-		}
-		nnc = world->nextNeighbor(info);
-	}
-#else
 	NextNeighborControl nnc = world->nextNeighborInit2(this, this->model->neighborhood);
 	while (nnc != STOP){
-		PreyBoid *other = (PreyBoid*)world->obtainAgentByIterInfo2();
-		if(!other->data->dead){
+		PreyBoidData_t *other = (PreyBoidData_t*)world->obtainAgentDataByIterInfo2();
+		if(!other->dead){
 			count++;
-			float2d_t m = other->momentum();
+			float2d_t &m = other->momentum();
 			x += m.x;
 			y += m.y;
 		}
 		nnc = world->nextNeighbor2();
 	}
-#endif
+
 	if (count > 0){
 		x /= count;
 		y /= count;
@@ -305,31 +290,17 @@ __device__ float2d_t PreyBoid::cohesion(const Continuous2D *world){
 	float x = 0;
 	float y = 0;
 	int count = 0;
-
-#if TRIAL_NEIGHBOR == 0
-	iterInfo info;
-	NextNeighborControl nnc = world->nextNeighborInit(this, this->model->neighborhood, info);
-	while (nnc != STOP){
-		PreyBoid *other = (PreyBoid*)world->obtainAgentByIterInfo(info.ptr);
-		if (!other->dead){
-			count++;
-			x += world->tdx(this->loc.x, other->loc.x);
-			y += world->tdy(this->loc.y, other->loc.y);
-		}
-		nnc = world->nextNeighbor(info);
-	}
-#else
 	NextNeighborControl nnc = world->nextNeighborInit2(this, this->model->neighborhood);
 	while (nnc != STOP){
-		PreyBoid *other = (PreyBoid*)world->obtainAgentByIterInfo2();
-		if (!other->data->dead){
+		PreyBoidData_t *other = (PreyBoidData_t*)world->obtainAgentDataByIterInfo2();
+		if (!other->dead){
 			count++;
-			x += world->tdx(this->data->loc.x, other->data->loc.x);
-			y += world->tdy(this->data->loc.y, other->data->loc.y);
+			x += world->tdx(this->data->loc.x, other->loc.x);
+			y += world->tdy(this->data->loc.y, other->loc.y);
 		}
 		nnc = world->nextNeighbor2();
 	}
-#endif
+
 	if (count > 0){
 		x /= count;
 		y /= count;
@@ -344,38 +315,21 @@ __device__ float2d_t PreyBoid::avoidance(const Continuous2D *world){
 	float x = 0;
 	float y = 0;
 	int count = 0;
-
-#if TRIAL_NEIGHBOR == 0
-	iterInfo info;
-	NextNeighborControl nnc = world->nextNeighborInit(this, this->model->neighborhood, info);
-	while(nnc != STOP){
-		PreyBoid *other = (PreyBoid*)world->obtainAgentByIterInfo(info.ptr);
-		if (!other->dead){
-			count++;
-			float dx = world->tdx(this->loc.x, other->loc.x);
-			float dy = world->tdy(this->loc.y, other->loc.y);
-			float sqrDist = dx*dx + dy*dy;
-			x += dx/(sqrDist*sqrDist + 1);
-			y += dy/(sqrDist*sqrDist + 1);
-		}
-		nnc = world->nextNeighbor(info);
-	}
-#else
 	const iterInfo &info = infoArray[threadIdx.x];
 	NextNeighborControl nnc = world->nextNeighborInit2(this, this->model->neighborhood);
 	while(nnc != STOP){
-		PreyBoid *other = (PreyBoid*)world->obtainAgentByIterInfo2();
-		if (!other->data->dead){
+		PreyBoidData_t *other = (PreyBoidData_t*)world->obtainAgentDataByIterInfo2();
+		if (!other->dead){
 			count++;
-			float dx = world->tdx(this->data->loc.x, other->data->loc.x);
-			float dy = world->tdy(this->data->loc.y, other->data->loc.y);
+			float dx = world->tdx(this->data->loc.x, other->loc.x);
+			float dy = world->tdy(this->data->loc.y, other->loc.y);
 			float sqrDist = dx*dx + dy*dy;
 			x += dx/(sqrDist*sqrDist + 1);
 			y += dy/(sqrDist*sqrDist + 1);
 		}
 		nnc = world->nextNeighbor2();
 	}
-#endif
+
 	if (count > 0){
 		x /= count;
 		y /= count;

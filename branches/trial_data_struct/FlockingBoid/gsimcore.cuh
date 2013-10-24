@@ -2,15 +2,13 @@
 #define GSIMCORE_H
 
 #include "gsimlib_header.cuh"
+#include "gsimapp_header.cuh"
 #include <thrust\sort.h>
 #include <thrust\device_vector.h>
 #include <thrust\device_ptr.h>
 #include <thrust\functional.h>
 #include <thrust\transform.h>
 #include <curand_kernel.h>
-
-#define TRIAL_NEIGHBOR	1
-#define TRIAL_ZCODE		1
 
 //class delaration
 class GSteppalbe;
@@ -34,9 +32,7 @@ typedef struct iter_info_per_thread
 
 	float range;
 } iterInfo;
-#if TRIAL_NEIGHBOR == 1
 extern __shared__ iterInfo infoArray[];
-#endif
 enum NextNeighborControl{CONTINUE, STOP, FOUND};
 
 namespace c2dUtil{
@@ -130,15 +126,10 @@ public:
 	__device__ float tdy(float ay, float by) const;
 	__device__ float tds(float2d_t aloc, float2d_t bloc) const;
 	//Neighbors related
-#if TRIAL_NEIGHBOR == 0
-	__device__ NextNeighborControl nextNeighborInit(const GAgent* ag, const float range, iterInfo &info) const;
-	__device__ NextNeighborControl nextNeighbor(iterInfo &info) const;
-	__device__ GAgent* obtainAgentByIterInfo(const int ptr) const;
-#else
 	__device__ NextNeighborControl nextNeighborInit2(const GAgent* ag, const float range) const;
 	__device__ NextNeighborControl nextNeighbor2() const;
-	__device__ GAgent* obtainAgentByIterInfo2() const;
-#endif
+	__device__ const GAgentData_t* obtainAgentDataByIterInfo2() const;
+
 	//__global__ functions
 	friend void c2dUtil::gen_hash_kernel(int *hash, Continuous2D *c2d);
 	friend void c2dUtil::gen_cellIdx_kernel(int *hash, Continuous2D *c2d);
@@ -274,61 +265,6 @@ __device__ float Continuous2D::tds(const float2d_t loc1, const float2d_t loc2) c
 	float dy = loc1.y - loc2.y;
 	return sqrt(dx*dx + dy*dy);
 }
-#if TRIAL_ZCODE == 0
-__device__ int Continuous2D::boarderPrimitive(iterInfo &info) const{
-	int cellIdBoarder = info.cellCur.y * CNO_PER_DIM + info.cellDR.x + 1;
-	int ptrBoarder = -1;
-	if (cellIdBoarder < CELL_NO_D)
-		ptrBoarder = cellIdx[cellIdBoarder];
-	else
-		return AGENT_NO_D-1;
-
-	while (ptrBoarder == -1) {
-		cellIdBoarder++;
-		if (cellIdBoarder < CELL_NO_D)
-			ptrBoarder = cellIdx[cellIdBoarder];
-		else
-			return AGENT_NO_D-1;
-	}
-	return ptrBoarder-1;
-}
-__device__ int Continuous2D::ptrPrimitive(iterInfo &info) const{
-	int ptr = cellIdx[info.cellCur.cell_id()];
-	while (ptr == -1){
-		info.cellCur.x++;
-		if (info.cellCur.x > info.cellDR.x){
-			info.cellCur.x = info.cellUL.x;
-			info.cellCur.y++;
-			if (info.cellCur.y > info.cellDR.y)
-				return -2;
-		}
-		ptr = cellIdx[info.cellCur.cell_id()];
-	}
-	return ptr;
-}
-__device__ bool Continuous2D::foundPrimitive(iterInfo &info) const{
-	GAgent *other = this->allAgents[this->neighborIdx[info.ptr]];
-	float ds = tds(info.agent->loc, other->loc);
-	if (ds < info.range){
-		info.count++;
-		return true;
-	}
-	return false;
-}
-__device__ NextNeighborControl Continuous2D::nextNeighborPrimitive(iterInfo &info) const {
-	info.ptr++;
-	if (info.ptr > info.boarder){
-		info.cellCur.x = info.cellUL.x;
-		info.cellCur.y++;
-		if (info.cellCur.y <= info.cellDR.y){
-			info.ptr = this->ptrPrimitive(info);
-			info.boarder = this->boarderPrimitive(info);
-		} else
-			return STOP;
-	}
-	return CONTINUE;
-}
-#else
 __device__ int Continuous2D::boarderPrimitive(iterInfo &info) const{
 	//check something about current cell
 	int cellIdBoarder = info.cellCur.zcode();
@@ -380,55 +316,6 @@ __device__ NextNeighborControl Continuous2D::nextNeighborPrimitive(iterInfo &inf
 	}
 	return CONTINUE;
 }
-#endif
-#if TRIAL_NEIGHBOR == 0
-__device__ NextNeighborControl Continuous2D::nextNeighbor(iterInfo &info) const {
-	NextNeighborControl nnc = this->nextNeighborPrimitive(info);
-	while (nnc == CONTINUE){
-		if (info.ptr < 0)
-			return STOP;
-		if (this->foundPrimitive(info))
-			return FOUND;
-		nnc = this->nextNeighborPrimitive(info);
-	}
-	return nnc;
-}
-__device__ NextNeighborControl Continuous2D::nextNeighborInit(const GAgent* ag, 
-	const float range, iterInfo &info) const {
-		float2d_t pos = ag->loc;
-		info.agent = ag;
-		info.ptr = -1;
-		info.boarder = -1;
-		info.count = 0;
-		info.range = range;
-
-		info.cellUL.x = (pos.x-range)>BOARDER_L_D ? 
-			(int)(pos.x-range)/CLEN_X : (int)BOARDER_L_D/CLEN_X;
-		info.cellDR.x = (pos.x+range)<BOARDER_R_D ? 
-			(int)(pos.x+range)/CLEN_X : (int)BOARDER_R_D/CLEN_X - 1;
-		info.cellUL.y = (pos.y-range)>BOARDER_U_D ? 
-			(int)(pos.y-range)/CLEN_Y : (int)BOARDER_U_D/CLEN_Y;
-		info.cellDR.y = (pos.y+range)<BOARDER_D_D ? 
-			(int)(pos.y+range)/CLEN_Y : (int)BOARDER_D_D/CLEN_Y - 1;
-		info.cellCur.x = info.cellUL.x;
-		info.cellCur.y = info.cellUL.y;
-
-		info.ptr = this->ptrPrimitive(info);
-		info.boarder = this->boarderPrimitive(info);
-
-		if (this->foundPrimitive(info))
-			return FOUND;
-		else
-			return this->nextNeighbor(info);
-}
-__device__ GAgent* Continuous2D::obtainAgentByIterInfo(const int ptr) const{
-	if (ptr<AGENT_NO_D && ptr>=0){
-		const int agIdx = this->neighborIdx[ptr];
-		return this->allAgents[agIdx];
-	}
-	return NULL;
-}
-#else
 __device__ NextNeighborControl Continuous2D::nextNeighbor2() const {
 	iterInfo &info = infoArray[threadIdx.x];
 	NextNeighborControl nnc = this->nextNeighborPrimitive(info);
@@ -468,16 +355,23 @@ __device__ NextNeighborControl Continuous2D::nextNeighborInit2(const GAgent* ag,
 	else
 		return this->nextNeighbor2();
 }
-__device__ GAgent* Continuous2D::obtainAgentByIterInfo2() const{
+__device__ const GAgentData_t* Continuous2D::obtainAgentDataByIterInfo2() const{
 	int ptr = infoArray[threadIdx.x].ptr;
+	int hitRangeBottom = blockDim.x * blockIdx.x * 1;// SHARED_SCALE_D == 1;
+	int hitRangeTop	= (blockIdx.x+1) * blockDim.x * 1;// SHARED_SCALE_D == 1;
+	if (ptr >= hitRangeBottom && ptr < hitRangeTop){
+		dataUnion *unionArray = (dataUnion*)&infoArray[blockDim.x];
+		dataUnion &dataElem = unionArray[ptr-hitRangeBottom];
+		return (GAgentData_t*)&dataElem;
+	}
 	if (ptr<AGENT_NO_D && ptr>=0){
 		const int agIdx = this->neighborIdx[ptr];
-		return this->allAgents[agIdx];
+		return this->allAgents[agIdx]->data;
 	}
 	printf("%d\n", ptr);
 	return NULL;
 }
-#endif
+
 //GAgent
 __device__ int GAgent::initId() {
 	return threadIdx.x + blockIdx.x * blockDim.x;
@@ -604,18 +498,6 @@ __device__ float GRandomGen::nextFloat(curandState *state){
 __device__ float GRandomGen::nextGaussian(){return 0;}
 
 //namespace continuous2D Utility
-#if TRIAL_ZCODE == 0
-__global__ void c2dUtil::gen_hash_kernel(int *hash, Continuous2D *c2d)
-{
-	GAgent *ag = c2d->obtainAgentPerThread();
-	if(ag != NULL) {
-		int idx = ag->getAgId();
-		c2d->neighborIdx[idx] = idx;
-		hash[idx] = (int)(ag->loc.x/CLEN_X) + 
-			CNO_PER_DIM * (int)(ag->loc.y/CLEN_Y);
-	}
-}
-#else
 __device__ int zcode(int x, int y){
 	x &= 0x0000ffff;                 // x = ---- ---- ---- ---- fedc ba98 7654 3210
     x = (x ^ (x << 8)) & 0x00ff00ff; // x = ---- ---- fedc ba98 ---- ---- 7654 3210
@@ -642,7 +524,6 @@ __global__ void c2dUtil::gen_hash_kernel(int *hash, Continuous2D *c2d)
 		c2d->neighborIdx[idx] = idx;
 	}
 }
-#endif
 __global__ void c2dUtil::gen_cellIdx_kernel(int *hash, Continuous2D *c2d)
 {
 	const int idx = threadIdx.x + blockIdx.x * blockDim.x;
@@ -652,18 +533,6 @@ __global__ void c2dUtil::gen_cellIdx_kernel(int *hash, Continuous2D *c2d)
 	}
 	if (idx == 0)
 		c2d->cellIdx[hash[0]] = idx;
-}
-__global__ void c2dUtil::queryNeighbor(Continuous2D *c2d){
-#if TRIAL_NEIGHBOR == 0
-	iterInfo info;
-	const int idx = threadIdx.x + blockIdx.x * blockDim.x;
-	if(idx < AGENT_NO_D){
-		GAgent *ag = c2d->allAgents[idx];
-		int ptr = c2d->nextNeighborInit(ag, 200, info);
-		while(ptr!=-1)
-			ptr = c2d->nextNeighbor(info);
-	}
-#endif
 }
 void c2dUtil::sort_hash_kernel(int *hash, int *neighborIdx)
 {
@@ -763,6 +632,12 @@ __global__ void schUtil::swapAgentsInScheduler(GModel *model) {
 __global__ void schUtil::step(GModel *gm){
 	GScheduler *sch = gm->getScheduler();
 	GAgent *ag = sch->obtainAgentPerThread();
+
+	dataUnion *unionArray = (dataUnion*)&infoArray[blockDim.x];
+	dataUnion &data = unionArray[threadIdx.x];
+	PreyBoidData_t *preyData = (PreyBoidData_t*)ag->data; //something is hard coded here
+	data.preyData = *preyData;
+
 	__syncthreads();
 	if (ag != NULL) {
 		ag->step(gm);
