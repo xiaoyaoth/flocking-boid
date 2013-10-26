@@ -28,7 +28,7 @@ typedef struct iter_info_per_thread
 	int ptr;
 	int boarder;
 	int count;
-	const GAgent *agent;
+	float2d_t myLoc;
 
 	float range;
 } iterInfo;
@@ -63,17 +63,16 @@ public:
 class GAgent : public GSteppable{
 protected:
 	GAgent *dummy;
+	GAgentData_t *data;
 	__device__ int initId();
 public:
-	GAgentData_t *data;
 	__device__ void allocOnDevice();
-	__device__ int getAgId() const;
+	__device__ int getId() const;
 	__device__ void setDummy(GAgent *dummy);
 	__device__ GAgent* getDummy() const;
+	__device__ GAgentData_t *getData();
+	__device__ float2d_t getLoc() const;
 	__device__ virtual void step(GModel *model) = 0;
-	__device__ virtual void initData() = 0;
-	__device__ virtual void initData(GAgentData_t *dummyData) = 0;
-	__device__ virtual void linkData() = 0;
 };
 class GIterativeAgent : public GAgent{
 private:
@@ -128,8 +127,10 @@ public:
 	//Neighbors related
 	__device__ NextNeighborControl nextNeighborInit2(const GAgent* ag, const float range) const;
 	__device__ NextNeighborControl nextNeighbor2() const;
+	//shared agent data reading utilities
 	__device__ const GAgentData_t* obtainAgentDataByIterInfo2() const;
-
+	__device__ const GAgentData_t* obtainAgentDataByInfoPtr(int ptr) const;
+	__device__ int getPtrInSharedArray(int ptr) const;
 	//__global__ functions
 	friend void c2dUtil::gen_hash_kernel(int *hash, Continuous2D *c2d);
 	friend void c2dUtil::gen_cellIdx_kernel(int *hash, Continuous2D *c2d);
@@ -293,8 +294,10 @@ __device__ int Continuous2D::ptrPrimitive(iterInfo &info) const{
 __device__ bool Continuous2D::foundPrimitive(iterInfo &info) const{
 	if (info.ptr < 0)
 		return false;
+	//const GAgentData_t *otherData = this->obtainAgentDataByInfoPtr(info.ptr);
 	GAgent *other = this->allAgents[this->neighborIdx[info.ptr]];
-	float ds = tds(info.agent->data->loc, other->data->loc);
+	//GAgent *other = this->allAgents[this->neighborIdx[info.ptr]];
+	float ds = tds(info.myLoc, other->getData()->loc);
 	if (ds < info.range){
 		info.count++;
 		return true;
@@ -326,24 +329,23 @@ __device__ NextNeighborControl Continuous2D::nextNeighbor2() const {
 	}
 	return nnc;
 }
-__device__ NextNeighborControl Continuous2D::nextNeighborInit2(const GAgent* ag, 
-	const float range) const {
+__device__ NextNeighborControl Continuous2D::nextNeighborInit2(const GAgent* ag, const float range) const {
 	iterInfo &info = infoArray[threadIdx.x];
-	float2d_t pos = ag->data->loc;
-	info.agent = ag;
+	float2d_t myLoc = ag->getLoc();
+	info.myLoc = myLoc;
 	info.ptr = -1;
 	info.boarder = -1;
 	info.count = 0;
 	info.range = range;
 
-	info.cellUL.x = (pos.x-range)>BOARDER_L_D ? 
-		(int)(pos.x-range)/CLEN_X : (int)BOARDER_L_D/CLEN_X;
-	info.cellDR.x = (pos.x+range)<BOARDER_R_D ? 
-		(int)(pos.x+range)/CLEN_X : (int)BOARDER_R_D/CLEN_X - 1;
-	info.cellUL.y = (pos.y-range)>BOARDER_U_D ? 
-		(int)(pos.y-range)/CLEN_Y : (int)BOARDER_U_D/CLEN_Y;
-	info.cellDR.y = (pos.y+range)<BOARDER_D_D ? 
-		(int)(pos.y+range)/CLEN_Y : (int)BOARDER_D_D/CLEN_Y - 1;
+	info.cellUL.x = (myLoc.x-range)>BOARDER_L_D ? 
+		(int)(myLoc.x-range)/CLEN_X : (int)BOARDER_L_D/CLEN_X;
+	info.cellDR.x = (myLoc.x+range)<BOARDER_R_D ? 
+		(int)(myLoc.x+range)/CLEN_X : (int)BOARDER_R_D/CLEN_X - 1;
+	info.cellUL.y = (myLoc.y-range)>BOARDER_U_D ? 
+		(int)(myLoc.y-range)/CLEN_Y : (int)BOARDER_U_D/CLEN_Y;
+	info.cellDR.y = (myLoc.y+range)<BOARDER_D_D ? 
+		(int)(myLoc.y+range)/CLEN_Y : (int)BOARDER_D_D/CLEN_Y - 1;
 	info.cellCur.x = info.cellUL.x;
 	info.cellCur.y = info.cellUL.y;
 
@@ -357,27 +359,33 @@ __device__ NextNeighborControl Continuous2D::nextNeighborInit2(const GAgent* ag,
 }
 __device__ const GAgentData_t* Continuous2D::obtainAgentDataByIterInfo2() const{
 	int ptr = infoArray[threadIdx.x].ptr;
-	int hitRangeBottom = blockDim.x * blockIdx.x * 1;// SHARED_SCALE_D == 1;
-	int hitRangeTop	= (blockIdx.x+1) * blockDim.x * 1;// SHARED_SCALE_D == 1;
-	if (ptr >= hitRangeBottom && ptr < hitRangeTop){
+	return this->obtainAgentDataByInfoPtr(ptr);
+}
+__device__ const GAgentData_t* Continuous2D::obtainAgentDataByInfoPtr(int ptr) const{
+	int ptrInSharedArray = this->getPtrInSharedArray(ptr);
+	if (ptrInSharedArray != -1) {
 		dataUnion *unionArray = (dataUnion*)&infoArray[blockDim.x];
-		dataUnion &dataElem = unionArray[ptr-hitRangeBottom];
+		dataUnion &dataElem = unionArray[ptrInSharedArray];
 		return (GAgentData_t*)&dataElem;
 	}
 	if (ptr<AGENT_NO_D && ptr>=0){
 		const int agIdx = this->neighborIdx[ptr];
-		return this->allAgents[agIdx]->data;
+		return this->allAgents[agIdx]->getData();
 	}
 	printf("%d\n", ptr);
 	return NULL;
+}
+__device__ int Continuous2D::getPtrInSharedArray(int ptr) const{
+	int hitRangeBottom = blockDim.x * blockIdx.x;
+	int hitRangeTop = (blockIdx.x + 1) * blockDim.x;
+	if (ptr >= hitRangeBottom && ptr < hitRangeTop)
+		return ptr - hitRangeBottom;
+	return -1;
 }
 
 //GAgent
 __device__ int GAgent::initId() {
 	return threadIdx.x + blockIdx.x * blockDim.x;
-}
-__device__ int	GAgent::getAgId() const {
-	return this->data->id;
 }
 __device__ void GAgent::allocOnDevice(){
 	this->data->id = threadIdx.x + blockIdx.x * blockDim.x;
@@ -388,6 +396,15 @@ __device__ void GAgent::setDummy(GAgent* dummy){
 }
 __device__ GAgent* GAgent::getDummy() const {
 	return this->dummy;
+}
+__device__ GAgentData_t *GAgent::getData(){
+	return this->data;
+}
+__device__ float2d_t GAgent::getLoc() const{
+	return this->data->loc;
+}
+__device__ int	GAgent::getId() const {
+	return this->data->id;
 }
 
 //GIterativeAgent
@@ -517,9 +534,10 @@ __global__ void c2dUtil::gen_hash_kernel(int *hash, Continuous2D *c2d)
 {
 	GAgent *ag = c2d->obtainAgentPerThread();
 	if(ag != NULL) {
-		int idx = ag->getAgId();
-		int xhash = (int)(ag->data->loc.x/CLEN_X);
-		int yhash = (int)(ag->data->loc.y/CLEN_Y);
+		int idx = ag->getId();
+		float2d_t myLoc = ag->getLoc();
+		int xhash = (int)(myLoc.x/CLEN_X);
+		int yhash = (int)(myLoc.y/CLEN_Y);
 		hash[idx] = zcode(xhash, yhash);
 		c2d->neighborIdx[idx] = idx;
 	}
@@ -630,12 +648,11 @@ __global__ void schUtil::swapAgentsInScheduler(GModel *model) {
 	model->getScheduler()->swap();
 }
 __global__ void schUtil::step(GModel *gm){
+	dataUnion *unionArray = (dataUnion*)&infoArray[blockDim.x];
 	GScheduler *sch = gm->getScheduler();
 	GAgent *ag = sch->obtainAgentPerThread();
-
-	dataUnion *unionArray = (dataUnion*)&infoArray[blockDim.x];
+	PreyBoidData_t *preyData = (PreyBoidData_t*)ag->getData(); //something is hard coded here
 	dataUnion &data = unionArray[threadIdx.x];
-	PreyBoidData_t *preyData = (PreyBoidData_t*)ag->data; //something is hard coded here
 	data.preyData = *preyData;
 
 	__syncthreads();

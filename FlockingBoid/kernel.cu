@@ -11,7 +11,7 @@
 __global__ void seeAllAgents(BoidModel *gm){
 	GAgent *ag = gm->getScheduler()->obtainAgentPerThread();
 	if (ag != NULL)
-		ag->getAgId();
+		ag->getId();
 }
 
 void initOnDevice(float *x_pos, float *y_pos){
@@ -44,16 +44,9 @@ void initOnDevice(float *x_pos, float *y_pos){
 __global__ void addAgentsOnDevice(BoidModel *gm, float *x_pos, float *y_pos){
 	const int idx = threadIdx.x + blockIdx.x * blockDim.x;
 	if (idx < AGENT_NO_D){ // user init step
-		PreyBoid *ag = new PreyBoid();
-		ag->initData();
-		ag->data->loc.x = x_pos[idx];
-		ag->data->loc.y = y_pos[idx];
-		ag->time = 0;
-		ag->rank = 0;
-		ag->model = gm;
+		PreyBoid *ag = new PreyBoid(x_pos[idx], y_pos[idx], gm);
 
-		PreyBoid *dummy = new PreyBoid();
-		dummy->initData();
+		PreyBoid *dummy = new PreyBoid(*ag);
 		dummy->model = gm;
 
 		ag->setDummy(dummy);
@@ -64,18 +57,7 @@ __global__ void addAgentsOnDevice(BoidModel *gm, float *x_pos, float *y_pos){
 		gm->getWorld()->getNeighborIdx()
 		);
 }
-__global__ void setupDataUnion(BoidModel* gm){
-	const int idx = threadIdx.x * blockIdx.x * blockDim.x;
-	GScheduler *sch = gm->getScheduler();
-	dataUnion *unionArray = (dataUnion*)&infoArray[blockDim.x];
-	if (idx < AGENT_NO_D){
-		GAgent *ag = sch->obtainAgentPerThread();
-		dataUnion &data = unionArray[threadIdx.x];
-		PreyBoidData_t *preyData = (PreyBoidData_t*)ag->data;
-		data.preyData = *preyData;
-		printf("%d %d", data.preyData.btype, ag->data->id);
-	}
-}
+
 void test1(){
 	int gSize = GRID_SIZE;
 	printf("sizeof(GModel*): %d\n", sizeof(GModel*));
@@ -289,8 +271,6 @@ int main(int argc, char *argv[]){
 	printf("steps: %d\n", STEPS);
 
 	std::ifstream fin("randDebugOut2.txt");
-	std::string str1;
-	std::string str2;
 	float *devRandDebug;
 	cudaMalloc((void**)&devRandDebug, STRIP*gSize*BLOCK_SIZE*sizeof(float));
 	cudaMemcpyToSymbol(randDebug, &devRandDebug, sizeof(devRandDebug),
@@ -298,10 +278,7 @@ int main(int argc, char *argv[]){
 
 	GSimVisual::getInstance().setWorld(model_h->world);
 	for (int i=0; i<STEPS; i++){
-		printf("STEP:%d\n", i);
-		//std::getline(fin, str1);
-		//std::getline(fin, str2);
-		//readRandDebug(devRandDebug, str1, str2);
+		//printf("STEP:%d\n", i);
 		oneStep(model, model_h);
 		GSimVisual::getInstance().animate();
 		writeRandDebug(i, devRandDebug);

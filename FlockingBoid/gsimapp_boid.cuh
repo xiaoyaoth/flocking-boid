@@ -37,19 +37,18 @@ public:
 };
 class BaseBoid : public GAgent {
 public:
-	BaseBoidData_t *data;
 	BoidModel *model;
 	__device__ float getOrientation2D();
 	__device__ void  setOrientation2D(float val);
 	__device__ float2d_t momentum();
 	__device__ virtual void step(GModel* model) = 0;
-	__device__ virtual void initData() = 0;
-	__device__ virtual void initData(GAgentData_t *dummyData) = 0;
-	__device__ void linkData() {
-		this->data = (BaseBoidData_t*)GAgent::data;
-	}
+protected:
+	float DEFAULT_SPEED;
 };
 class FoodBoid : public BaseBoid{
+	float scale;
+	int amount;
+	int respawnCount;
 public:
 	FoodBoidData_t *data;
 	__device__ void reduce();
@@ -60,8 +59,49 @@ public:
 	}
 };
 class PreyBoid : public BaseBoid{
+	float fleeBonus;
+	int hungerCount;
+	int starveCount;
+	int mateCount;
+	bool horny;
+
+	float SENSE_FOOD_RANGE;
+	int HUNGER_LIMIT;
+	int STARVE_LIMIT;
 public:
-	PreyBoidData_t *data;
+	__device__ PreyBoid(){
+		PreyBoid(0,0, NULL);
+	}
+	__device__ PreyBoid(const PreyBoid &twin){
+		this->HUNGER_LIMIT = twin.HUNGER_LIMIT;
+		this->STARVE_LIMIT = twin.STARVE_LIMIT;
+		this->DEFAULT_SPEED = twin.DEFAULT_SPEED;
+		this->model = twin.model;
+		this->dummy = (GAgent*)&twin;
+		this->time = twin.time;
+		this->rank = twin.rank;
+		this->data = new PreyBoidData_t();
+		PreyBoidData_t *myData = (PreyBoidData_t*)this->data;
+		PreyBoidData_t &otherData = (PreyBoidData_t&)*twin.data;
+		myData->id = otherData.id;
+		myData->loc.x = otherData.loc.x;
+		myData->loc.y = otherData.loc.y;
+		myData->btype = otherData.btype;
+	}
+	__device__ PreyBoid(float x, float y, BoidModel *model){
+		this->HUNGER_LIMIT = CONSTANT::PREY_HUNGER_LIMIT;
+		this->STARVE_LIMIT = CONSTANT::PREY_STARVE_LIMIT;
+		this->DEFAULT_SPEED = 0.7;
+		this->model = model;
+		this->time = 0;
+		this->rank = 0;
+		this->data = new PreyBoidData_t();
+		PreyBoidData_t *myData = (PreyBoidData_t*)this->data;
+		myData->id = this->initId();
+		myData->loc.x = x;
+		myData->loc.y = y;
+		myData->btype = PREY_BOID;
+	}
 	__device__ bool hungry();
 	__device__ void eat(FoodBoid *food);
 	__device__ bool starved();
@@ -76,33 +116,6 @@ public:
 	//__device__ float2d_t conformSpeed(Continuous2D *world);
 	//__device__ float2d_t searchMate(Continuous2D *world);
 	__device__ void step(GModel *state);
-	__device__ void initData() {
-		GAgent::data = new PreyBoidData_t();
-		this->linkData();
-		this->data->id = this->initId();
-		this->data->loc.x = 0;
-		this->data->loc.y = 0;
-		this->data->btype = PREY_BOID;
-		this->data->HUNGER_LIMIT = CONSTANT::PREY_HUNGER_LIMIT;
-		this->data->STARVE_LIMIT = CONSTANT::PREY_STARVE_LIMIT;
-		this->data->DEFAULT_SPEED = 0.7;
-	}
-	__device__ void initData(GAgentData_t *dummyData) {
-		GAgent::data = new PreyBoidData_t();
-		PreyBoidData_t *preyDummyData = (PreyBoidData_t*)dummyData;
-		this->linkData();
-		this->data->id = preyDummyData->id;
-		this->data->loc.x = preyDummyData->loc.x;
-		this->data->loc.y = preyDummyData->loc.y;
-		this->data->btype = preyDummyData->btype;
-		this->data->HUNGER_LIMIT = preyDummyData->HUNGER_LIMIT;
-		this->data->STARVE_LIMIT = preyDummyData->STARVE_LIMIT;
-		this->data->DEFAULT_SPEED = preyDummyData->DEFAULT_SPEED;
-	}
-	__device__ void linkData(){
-		BaseBoid::linkData();
-		this->data = (PreyBoidData_t*)BaseBoid::data;
-	}
 };
 class PredatorBoid : public BaseBoid{
 public:
@@ -176,16 +189,19 @@ __device__ void BoidModel::addToWorld(GAgent *ag, int idx){
 
 //BaseBoid
 __device__ float BaseBoid::getOrientation2D(){
-	if (this->data->lastd.x = 0 && this->data->lastd.y == 0)
+	BaseBoidData_t *myData = (BaseBoidData_t*)this->data;
+	if (myData->lastd.x = 0 && myData->lastd.y == 0)
 		return 0;
-	return atan2(this->data->lastd.y, this->data->lastd.x);
+	return atan2(myData->lastd.y, myData->lastd.x);
 }
 __device__ void BaseBoid::setOrientation2D(float val){
-	this->data->lastd.x = cos(val);
-	this->data->lastd.y = sin(val);
+	BaseBoidData_t *myData = (BaseBoidData_t*)this->data;
+	myData->lastd.x = cos(val);
+	myData->lastd.y = sin(val);
 }
 __device__ float2d_t BaseBoid::momentum(){
-	return this->data->lastd;
+	BaseBoidData_t *myData = (BaseBoidData_t*)this->data;
+	return myData->lastd;
 }
 
 //FoodBoid
@@ -218,13 +234,14 @@ __device__ void FoodBoid::step(GModel *model){
 
 //PreyBoid
 __device__ bool PreyBoid::hungry(){
-	if (this->data->hungerCount == this->data->HUNGER_LIMIT) {
-		this->data->bstate = HUNGRY;
-		this->data->starveCount++;
+	PreyBoidData_t *myData = (PreyBoidData_t*)this->data;
+	if (this->hungerCount == this->HUNGER_LIMIT) {
+		myData->bstate = HUNGRY;
+		this->starveCount++;
 		return true;
 	} else {
-		this->data->hungerCount++;
-		this->data->bstate = NORMAL;
+		this->hungerCount++;
+		myData->bstate = NORMAL;
 		return false;
 	}
 }
@@ -240,13 +257,13 @@ __device__ void PreyBoid::eat(FoodBoid *food){
 
 }
 __device__ bool PreyBoid::starved(){
-	return this->data->starveCount == this->data->STARVE_LIMIT;
+	return this->starveCount == this->STARVE_LIMIT;
 }
 __device__ bool PreyBoid::readyToMate(){
-	return this->data->horny;
+	return this->horny;
 }
 __device__ void PreyBoid::setRandomSpeed(){
-	this->data->DEFAULT_SPEED = CONSTANT::PREY_STD_SPEED + 
+	this->DEFAULT_SPEED = CONSTANT::PREY_STD_SPEED + 
 		this->model->rgen->nextGaussian() * 0.2;
 
 }
@@ -346,7 +363,8 @@ __device__ float2d_t PreyBoid::avoidance(const Continuous2D *world){
 //__device__ float2d_t PreyBoid::searchMate(Continuous2D *world){return float2d_t(0,0);}
 __device__ void PreyBoid::step(GModel *model){
 	const BoidModel *boidModel = (BoidModel*) model;
-	if (this->data->dead)
+	PreyBoidData_t *myData = (PreyBoidData_t*)this->data;
+	if (myData->dead)
 		return;
 	const Continuous2D *world = boidModel->getWorld();
 	float2d_t avoid = this->avoidance(world);
@@ -372,19 +390,20 @@ __device__ void PreyBoid::step(GModel *model){
 		dy = dy / dist * boidModel->jump;
 	}
 	BaseBoid *dummy = (BaseBoid*)this->dummy;
-	dummy->data->lastd.x = dx;
-	dummy->data->lastd.y = dy;
-	dummy->data->loc.x = world->stx(this->data->loc.x + dx);
-	dummy->data->loc.y = world->sty(this->data->loc.y + dy);
+	PreyBoidData_t *dummyData = (PreyBoidData_t*)dummy->getData();
+	dummyData->lastd.x = dx;
+	dummyData->lastd.y = dy;
+	dummyData->loc.x = world->stx(myData->loc.x + dx);
+	dummyData->loc.y = world->sty(myData->loc.y + dy);
 
-	if (dummy->data->loc.x <0 || dummy->data->loc.y < 0) {
-		printf("%f, %f, %f, %f", dummy->data->loc.x, 
-			dummy->data->loc.y, dummy->data->lastd.x, 
-			dummy->data->lastd.y);
-		dummy->data->loc.x = world->stx(this->data->loc.x + dx);
+	if (dummyData->loc.x <0 || dummyData->loc.y < 0) {
+		printf("%f, %f, %f, %f", dummyData->loc.x, 
+			dummyData->loc.y, dummyData->lastd.x, 
+			dummyData->lastd.y);
+		dummyData->loc.x = world->stx(myData->loc.x + dx);
 	}
-	randDebug[STRIP*this->data->id] = this->dummy->data->loc.x;
-	randDebug[STRIP*this->data->id+1] = this->dummy->data->loc.y;
+	randDebug[STRIP*myData->id] = dummyData->loc.x;
+	randDebug[STRIP*myData->id+1] = dummyData->loc.y;
 
 //	printf("%f, %f\n", dummy->loc.x, dummy->loc.y);
 }

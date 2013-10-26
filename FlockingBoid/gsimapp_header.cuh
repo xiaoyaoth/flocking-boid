@@ -9,7 +9,6 @@ enum BoidState{HUNGRY, NORMAL, FLEEING, STARVING, SEEKING_MATE};
 typedef struct BaseBoidData : public GAgentData_t{
 	float2d_t lastd;
 	bool dead;
-	float DEFAULT_SPEED;
 	BoidType btype;
 	BoidState bstate;
 	__device__ float2d_t momentum(){
@@ -18,21 +17,10 @@ typedef struct BaseBoidData : public GAgentData_t{
 } BaseBoidData_t;
 
 typedef struct PreyBoidData : public BaseBoidData_t {
-	float fleeBonus;
-	int hungerCount;
-	int starveCount;
-	int mateCount;
-	bool horny;
 
-	float SENSE_FOOD_RANGE;
-	int HUNGER_LIMIT;
-	int STARVE_LIMIT;
 } PreyBoidData_t;
 
 typedef struct FoodBoidData : public BaseBoidData_t{
-	float scale;
-	int amount;
-	int respawnCount;
 } FoodBoidData_t;
 
 union dataUnion {
