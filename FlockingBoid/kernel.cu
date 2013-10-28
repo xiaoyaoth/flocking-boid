@@ -11,7 +11,7 @@
 __global__ void seeAllAgents(BoidModel *gm){
 	GAgent *ag = gm->getScheduler()->obtainAgentPerThread();
 	if (ag != NULL)
-		ag->getAgId();
+		ag->getId();
 }
 
 void initOnDevice(float *x_pos, float *y_pos){
@@ -44,13 +44,11 @@ void initOnDevice(float *x_pos, float *y_pos){
 __global__ void addAgentsOnDevice(BoidModel *gm, float *x_pos, float *y_pos){
 	const int idx = threadIdx.x + blockIdx.x * blockDim.x;
 	if (idx < AGENT_NO_D){ // user init step
-		PreyBoid *ag = new PreyBoid();
-		ag->loc.x = x_pos[idx];
-		ag->loc.y = y_pos[idx];
-		ag->time = 0;
-		ag->rank = 0;
-		ag->model = gm;
-		PreyBoid *dummy = new PreyBoid(ag);
+		PreyBoid *ag = new PreyBoid(x_pos[idx], y_pos[idx], gm);
+
+		PreyBoid *dummy = new PreyBoid(*ag);
+		dummy->model = gm;
+
 		ag->setDummy(dummy);
 		gm->addToScheduler(ag, idx);
 		gm->addToWorld(ag, idx);
@@ -223,8 +221,11 @@ void writeRandDebug(int i, float* devRandDebug){
 				randDebugOut
 					<<std::setw(4)
 					<<i<< "\t"
-					<<hostRandDebug[STRIP*i]<<"\t"
-					<<hostRandDebug[STRIP*i+1]<<"\t"
+					//<<hostRandDebug[STRIP*i]<<"\t"
+					//<<hostRandDebug[STRIP*i+1]<<"\t"
+					<<hostRandDebug[STRIP*i+2]<<"\t"
+					<<hostRandDebug[STRIP*i+3]<<"\t"
+					<<hostRandDebug[STRIP*i+4]<<"\t"
 					<<std::endl;		
 				randDebugOut.flush();		
 			}		
@@ -237,10 +238,9 @@ void writeRandDebug(int i, float* devRandDebug){
 
 void oneStep(BoidModel *model, BoidModel *model_h){
 	int gSize = GRID_SIZE;
-	size_t sizeOfSmem = BLOCK_SIZE*sizeof(iterInfo);
+	size_t sizeOfSmem = BLOCK_SIZE * (sizeof(iterInfo) + sizeof(dataUnion));
 	c2dUtil::genNeighbor(model_h->world, model_h->worldH);
 	schUtil::step<<<gSize, BLOCK_SIZE, sizeOfSmem>>>(model);
-
 	c2dUtil::swapAgentsInWorld<<<gSize, BLOCK_SIZE>>>(model_h->world);
 	schUtil::swapAgentsInScheduler<<<gSize, BLOCK_SIZE>>>(model);
 }
@@ -271,8 +271,6 @@ int main(int argc, char *argv[]){
 	printf("steps: %d\n", STEPS);
 
 	std::ifstream fin("randDebugOut2.txt");
-	std::string str1;
-	std::string str2;
 	float *devRandDebug;
 	cudaMalloc((void**)&devRandDebug, STRIP*gSize*BLOCK_SIZE*sizeof(float));
 	cudaMemcpyToSymbol(randDebug, &devRandDebug, sizeof(devRandDebug),
@@ -280,10 +278,7 @@ int main(int argc, char *argv[]){
 
 	GSimVisual::getInstance().setWorld(model_h->world);
 	for (int i=0; i<STEPS; i++){
-		printf("STEP:%d\n", i);
-		//std::getline(fin, str1);
-		//std::getline(fin, str2);
-		//readRandDebug(devRandDebug, str1, str2);
+		//printf("STEP:%d\n", i);
 		oneStep(model, model_h);
 		GSimVisual::getInstance().animate();
 		writeRandDebug(i, devRandDebug);

@@ -23,7 +23,6 @@ typedef struct int_2d
 {
 	int x;
 	int y;
-	int_2d():x(0),y(0){}
 	int cell_id(){
 		return y * CNO_PER_DIM + x;
 	}
@@ -52,15 +51,6 @@ typedef struct float_2d
 {
 	float x;
 	float y;
-	//  float_2d():x(0),y(0){}
-	float_2d(){
-		this->x = 0;
-		this->y = 0;
-	}
-	float_2d(const float xx, const float yy){
-		this->x = xx;
-		this->y = yy;
-	}
 	float distance (float_2d p){
 		return sqrt((p.x-x)*(p.x-x)+(p.y-y)*(p.y-y));
 	}
@@ -68,7 +58,5 @@ typedef struct float_2d
 		printf("(%f, %f)", x, y);
 	}
 } float2d_t;
-
-typedef struct shared_info sinfo_t;
 
 #endif

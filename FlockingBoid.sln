@@ -3,8 +3,6 @@ Microsoft Visual Studio Solution File, Format Version 11.00
 # Visual Studio 2010
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "FlockingBoid", "FlockingBoid\FlockingBoid.vcxproj", "{A8867CDA-BA27-4569-AD02-6EBEF3B6A73F}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Test", "Test\Test.vcxproj", "{4D747D5F-B5A2-4B9F-A1B4-3B65674554D6}"
-EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{56A09F29-B46C-4310-87B5-A6EF837F03D4}"
 	ProjectSection(SolutionItems) = preProject
 		FlockingBoid.vsmdi = FlockingBoid.vsmdi
@@ -34,10 +32,6 @@ Global
 		{A8867CDA-BA27-4569-AD02-6EBEF3B6A73F}.Debug|Win32.Build.0 = Debug|Win32
 		{A8867CDA-BA27-4569-AD02-6EBEF3B6A73F}.Release|Win32.ActiveCfg = Release|Win32
 		{A8867CDA-BA27-4569-AD02-6EBEF3B6A73F}.Release|Win32.Build.0 = Release|Win32
-		{4D747D5F-B5A2-4B9F-A1B4-3B65674554D6}.Debug|Win32.ActiveCfg = Debug|Win32
-		{4D747D5F-B5A2-4B9F-A1B4-3B65674554D6}.Debug|Win32.Build.0 = Debug|Win32
-		{4D747D5F-B5A2-4B9F-A1B4-3B65674554D6}.Release|Win32.ActiveCfg = Release|Win32
-		{4D747D5F-B5A2-4B9F-A1B4-3B65674554D6}.Release|Win32.Build.0 = Release|Win32
 		{8D3E9688-A168-4D4C-AB42-D9B8865AC3BD}.Debug|Win32.ActiveCfg = Debug|Win32
 		{8D3E9688-A168-4D4C-AB42-D9B8865AC3BD}.Debug|Win32.Build.0 = Debug|Win32
 		{8D3E9688-A168-4D4C-AB42-D9B8865AC3BD}.Release|Win32.ActiveCfg = Release|Win32
