@@ -336,6 +336,7 @@ __device__ float2d_t PreyBoid::avoidance(const Continuous2D *world){
 	NextNeighborControl nnc = world->nextNeighborInit2(this, this->model->neighborhood);
 	while(nnc != STOP){
 		PreyBoidData_t *other = (PreyBoidData_t*)world->obtainAgentDataByIterInfo2();
+
 		if (!other->dead){
 			count++;
 			float dx = world->tdx(this->data->loc.x, other->loc.x);
