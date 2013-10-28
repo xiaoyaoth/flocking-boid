@@ -276,7 +276,7 @@ __device__ int Continuous2D::boarderPrimitive(iterInfo &info) const{
 		return AGENT_NO_D-1;
 	//check something about next cell and next...
 	cellIdBoarder++;
-	if (cellIdBoarder == CELL_NO_D-1)
+	if (cellIdBoarder == CELL_NO_D)
 		return AGENT_NO_D-1;
 	ptrBoarder = cellIdx[cellIdBoarder];
 	while(ptrBoarder == -1){
@@ -298,7 +298,7 @@ __device__ bool Continuous2D::foundPrimitive(iterInfo &info) const{
 	GAgent *other = this->allAgents[this->neighborIdx[info.ptr]];
 	//GAgent *other = this->allAgents[this->neighborIdx[info.ptr]];
 	float ds = tds(info.myLoc, other->getData()->loc);
-	if (ds < info.range){
+	if (ds <= info.range){
 		info.count++;
 		return true;
 	}
@@ -339,13 +339,13 @@ __device__ NextNeighborControl Continuous2D::nextNeighborInit2(const GAgent* ag,
 	info.range = range;
 
 	info.cellUL.x = (myLoc.x-range)>BOARDER_L_D ? 
-		(int)(myLoc.x-range)/CLEN_X : (int)BOARDER_L_D/CLEN_X;
+		(int)((myLoc.x-range)/CLEN_X) : (int)BOARDER_L_D/CLEN_X;
 	info.cellDR.x = (myLoc.x+range)<BOARDER_R_D ? 
-		(int)(myLoc.x+range)/CLEN_X : (int)BOARDER_R_D/CLEN_X - 1;
+		(int)((myLoc.x+range)/CLEN_X) : (int)BOARDER_R_D/CLEN_X - 1;
 	info.cellUL.y = (myLoc.y-range)>BOARDER_U_D ? 
-		(int)(myLoc.y-range)/CLEN_Y : (int)BOARDER_U_D/CLEN_Y;
+		(int)((myLoc.y-range)/CLEN_Y) : (int)BOARDER_U_D/CLEN_Y;
 	info.cellDR.y = (myLoc.y+range)<BOARDER_D_D ? 
-		(int)(myLoc.y+range)/CLEN_Y : (int)BOARDER_D_D/CLEN_Y - 1;
+		(int)((myLoc.y+range)/CLEN_Y) : (int)BOARDER_D_D/CLEN_Y - 1;
 	info.cellCur.x = info.cellUL.x;
 	info.cellCur.y = info.cellUL.y;
 

@@ -221,8 +221,8 @@ void writeRandDebug(int i, float* devRandDebug){
 				randDebugOut
 					<<std::setw(4)
 					<<i<< "\t"
-					<<hostRandDebug[STRIP*i]<<"\t"
-					<<hostRandDebug[STRIP*i+1]<<"\t"
+					//<<hostRandDebug[STRIP*i]<<"\t"
+					//<<hostRandDebug[STRIP*i+1]<<"\t"
 					<<hostRandDebug[STRIP*i+2]<<"\t"
 					<<hostRandDebug[STRIP*i+3]<<"\t"
 					<<hostRandDebug[STRIP*i+4]<<"\t"
