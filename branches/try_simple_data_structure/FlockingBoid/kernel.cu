@@ -238,7 +238,10 @@ void writeRandDebug(int i, float* devRandDebug){
 
 void oneStep(BoidModel *model, BoidModel *model_h){
 	int gSize = GRID_SIZE;
-	size_t sizeOfSmem = BLOCK_SIZE * (sizeof(iterInfo) + sizeof(dataUnion));
+	size_t sizeOfSmem = BLOCK_SIZE * (
+		4*sizeof(int)
+		+ sizeof(dataUnion)
+		);
 	c2dUtil::genNeighbor(model_h->world, model_h->worldH);
 	schUtil::step<<<gSize, BLOCK_SIZE, sizeOfSmem>>>(model);
 	c2dUtil::swapAgentsInWorld<<<gSize, BLOCK_SIZE>>>(model_h->world);
@@ -264,6 +267,8 @@ int main(int argc, char *argv[]){
 
 	printf("size taken by the one agent:%d and all agents: %d\n",
 		sizeof(PreyBoid), AGENT_NO*sizeof(PreyBoid));
+	printf("size taken by one iterInfo: %d\n", sizeof(iterInfo));
+	printf("size taken by one dataUnion: %d\n", sizeof(dataUnion));
 	addAgentsOnDevice<<<gSize, BLOCK_SIZE>>>(model, x_pos, y_pos);
 
 	//schUtil::scheduleRepeatingAllAgents<<<1, BLOCK_SIZE>>>(model);

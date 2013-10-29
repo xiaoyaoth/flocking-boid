@@ -87,6 +87,7 @@ public:
 		myData->loc.x = otherData.loc.x;
 		myData->loc.y = otherData.loc.y;
 		myData->btype = otherData.btype;
+		myData->bstate = otherData.bstate;
 	}
 	__device__ PreyBoid(float x, float y, BoidModel *model){
 		this->HUNGER_LIMIT = CONSTANT::PREY_HUNGER_LIMIT;
@@ -101,6 +102,7 @@ public:
 		myData->loc.x = x;
 		myData->loc.y = y;
 		myData->btype = PREY_BOID;
+		myData->bstate = BoidState::SEEKING_MATE;
 	}
 	__device__ bool hungry();
 	__device__ void eat(FoodBoid *food);
@@ -116,7 +118,9 @@ public:
 	//__device__ float2d_t conformSpeed(Continuous2D *world);
 	//__device__ float2d_t searchMate(Continuous2D *world);
 	__device__ void step(GModel *state);
+	__device__ void step1(GModel *state);
 };
+
 class PredatorBoid : public BaseBoid{
 public:
 	int hungerCount;
@@ -267,6 +271,7 @@ __device__ void PreyBoid::setRandomSpeed(){
 		this->model->rgen->nextGaussian() * 0.2;
 
 }
+/*
 __device__ float2d_t PreyBoid::randomness(GRandomGen *gen){
 	const int idx = threadIdx.x + blockIdx.x * blockDim.x;
 	float x = randDebug[STRIP*idx];
@@ -283,7 +288,8 @@ __device__ float2d_t PreyBoid::consistency(const Continuous2D *world){
 	int count = 0;
 	NextNeighborControl nnc = world->nextNeighborInit2(this, this->model->neighborhood);
 	while (nnc != STOP){
-		PreyBoidData_t *other = (PreyBoidData_t*)world->obtainAgentDataByIterInfo2();
+		PreyBoidData_t *other = NULL;
+			//(PreyBoidData_t*)world->obtainAgentDataByIterInfo2();
 		if(!other->dead){
 			count++;
 			float2d_t &m = other->momentum();
@@ -309,7 +315,8 @@ __device__ float2d_t PreyBoid::cohesion(const Continuous2D *world){
 	int count = 0;
 	NextNeighborControl nnc = world->nextNeighborInit2(this, this->model->neighborhood);
 	while (nnc != STOP){
-		PreyBoidData_t *other = (PreyBoidData_t*)world->obtainAgentDataByIterInfo2();
+		PreyBoidData_t *other = NULL;
+			//(PreyBoidData_t*)world->obtainAgentDataByIterInfo2();
 		if (!other->dead){
 			count++;
 			x += world->tdx(this->data->loc.x, other->loc.x);
@@ -328,61 +335,64 @@ __device__ float2d_t PreyBoid::cohesion(const Continuous2D *world){
 	res.y = -y/10;
 	return res;
 }
+
 __device__ float2d_t PreyBoid::avoidance(const Continuous2D *world){
 	float x = 0;
 	float y = 0;
 	int count = 0;
 	const iterInfo &info = infoArray[threadIdx.x];
-	NextNeighborControl nnc = world->nextNeighborInit2(this, this->model->neighborhood);
-	while(nnc != STOP){
-		PreyBoidData_t *other = (PreyBoidData_t*)world->obtainAgentDataByIterInfo2();
+	for (int i=0; i<1000; i++)
+		NextNeighborControl nnc = world->nextNeighborInit2(this, this->model->neighborhood);
+	//while(nnc != STOP){
+		//PreyBoidData_t *other = (PreyBoidData_t*)world->obtainAgentDataByIterInfo2();
 
-		if (!other->dead){
-			count++;
-			float dx = world->tdx(this->data->loc.x, other->loc.x);
-			float dy = world->tdy(this->data->loc.y, other->loc.y);
-			float sqrDist = dx*dx + dy*dy;
-			x += dx/(sqrDist*sqrDist + 1);
-			y += dy/(sqrDist*sqrDist + 1);
-		}
-		nnc = world->nextNeighbor2();
-	}
+	//	if (!other->dead){
+	//		count++;
+	//		float dx = world->tdx(this->data->loc.x, other->loc.x);
+	//		float dy = world->tdy(this->data->loc.y, other->loc.y);
+	//		float sqrDist = dx*dx + dy*dy;
+	//		x += dx/(sqrDist*sqrDist + 1);
+	//		y += dy/(sqrDist*sqrDist + 1);
+	//	}
+	//	nnc = world->nextNeighbor2();
+	//}
 
-	if (count > 0){
-		x /= count;
-		y /= count;
-	}
-	randDebug[STRIP*this->data->id+4] = infoArray[threadIdx.x].count;
+	//if (count > 0){
+	//	x /= count;
+	//	y /= count;
+	//}
+	//randDebug[STRIP*this->data->id+4] = infoArray[threadIdx.x].count;
 	float2d_t res;
-	res.x = 400*x;
-	res.y = 400*y;
+	//res.x = 400*x;
+	//res.y = 400*y;
 	return res;
 }
+*/
 //__device__ float2d_t PreyBoid::flee(Continuous2D *world){return float2d_t(0,0);}
 //__device__ float2d_t PreyBoid::searchFood(Continuous2D *world){return float2d_t(0,0);}
 //__device__ float2d_t PreyBoid::conformSpeed(Continuous2D *world){return float2d_t(0,0);}
 //__device__ float2d_t PreyBoid::searchMate(Continuous2D *world){return float2d_t(0,0);}
-__device__ void PreyBoid::step(GModel *model){
+__device__ void PreyBoid::step1(GModel *model){
 	const BoidModel *boidModel = (BoidModel*) model;
 	PreyBoidData_t *myData = (PreyBoidData_t*)this->data;
 	if (myData->dead)
 		return;
 	const Continuous2D *world = boidModel->getWorld();
-	float2d_t avoid = this->avoidance(world);
-	float2d_t cohes = this->cohesion(world);
-	float2d_t consi = this->consistency(world);
+	//float2d_t avoid = this->avoidance(world);
+	//float2d_t cohes = this->cohesion(world);
+	//float2d_t consi = this->consistency(world);
 	//float2d_t rdnes = this->randomness(model->rgen);
 	float2d_t momen = this->momentum();
 	float dx = 
-		cohes.x * boidModel->cohesion +
-		avoid.x * boidModel->avoidance +
-		consi.x * boidModel->consistency +
+		//cohes.x * boidModel->cohesion +
+		//avoid.x * boidModel->avoidance +
+		//consi.x * boidModel->consistency +
 		//rdnes.x * boidModel->randomness +
 		momen.x * boidModel->momentum;
 	float dy = 
-		cohes.y * boidModel->cohesion +
-		avoid.y * boidModel->avoidance +
-		consi.y * boidModel->consistency +
+		//cohes.y * boidModel->cohesion +
+		//avoid.y * boidModel->avoidance +
+		//consi.y * boidModel->consistency +
 		//rdnes.y * boidModel->randomness +
 		momen.y * boidModel->momentum;
 	float dist = sqrt(dx*dx + dy*dy);
@@ -397,16 +407,44 @@ __device__ void PreyBoid::step(GModel *model){
 	dummyData->loc.x = world->stx(myData->loc.x + dx);
 	dummyData->loc.y = world->sty(myData->loc.y + dy);
 
-	if (dummyData->loc.x <0 || dummyData->loc.y < 0) {
-		printf("%f, %f, %f, %f", dummyData->loc.x, 
-			dummyData->loc.y, dummyData->lastd.x, 
-			dummyData->lastd.y);
-		dummyData->loc.x = world->stx(myData->loc.x + dx);
+	//randDebug[STRIP*myData->id] = dummyData->loc.x;
+	//randDebug[STRIP*myData->id+1] = dummyData->loc.y;
+}
+__device__ void PreyBoid::step(GModel *model){
+	const BoidModel *boidModel = (BoidModel*) model;
+	const Continuous2D *world = boidModel->getWorld();
+	iterInfo info; 
+	world->nextNeighborInit2(this, 150, info);
+	int count = 0;
+	float x=0, y=0, dx=0, dy=0;
+	float sqrDist, ds;
+	for (; info.cellCur.y <= info.cellDR.y; info.cellCur.y++) {
+		//re-calculate ptr and boarder
+		info.cellCur.x = info.cellUL.x;
+		for (; info.cellCur.x <= info.cellDR.y; info.cellCur.x++) {
+			//re-calculate ptr and boarder
+			world->calcPtrAndBoarder(info);
+			world->putAgentDataIntoSharedMem(info);
+			for (; info.ptr <= info.boarder && info.ptr>=0; info.ptr++){
+				//boarder is included in the cell
+				GAgent *other = world->obtainAgentByInfoPtr(info.ptr);
+				//do something
+				PreyBoidData_t *otherData = (PreyBoidData_t*)other->getData();
+				ds = world->tds(this->data->loc, otherData->loc);
+				if (ds < 150) {
+					if (!otherData->dead){
+						count++;
+						dx = world->tdx(this->data->loc.x, otherData->loc.x);
+						dy = world->tdy(this->data->loc.y, otherData->loc.y);
+						sqrDist = dx*dx + dy*dy;
+						x += dx/(sqrDist*sqrDist + 1);
+						y += dy/(sqrDist*sqrDist + 1);
+					}
+				}
+				__syncthreads();
+			}
+		}
 	}
-	randDebug[STRIP*myData->id] = dummyData->loc.x;
-	randDebug[STRIP*myData->id+1] = dummyData->loc.y;
-
-//	printf("%f, %f\n", dummy->loc.x, dummy->loc.y);
 }
 
 //PredatorBoid
