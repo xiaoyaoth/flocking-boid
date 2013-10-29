@@ -28,6 +28,20 @@ union dataUnion {
 	BaseBoidData_t baseData;
 	PreyBoidData_t preyData;
 	FoodBoidData_t foodData;
+	__device__ void addValue(GAgentData_t *data){
+		BaseBoidData_t *boidData = (BaseBoidData_t*)data;
+		BoidType bt = boidData->btype;
+		switch (bt) {
+		case BoidType::FOOD_BOID: 
+			break;
+		case BoidType::PREY_BOID:
+			PreyBoidData_t *pd = (PreyBoidData*)data;
+			preyData = *pd;
+			break;
+		case BoidType::PREDATOR_BOID:
+			break;
+		}
+	}
 };
 
 namespace CONSTANT{
