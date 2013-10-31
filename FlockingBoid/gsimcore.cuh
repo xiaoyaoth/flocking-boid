@@ -29,6 +29,7 @@ typedef struct iter_info_per_thread
 	int boarder;
 	int count;
 	float2d_t myLoc;
+	int ptrInSmem;
 
 	float range;
 } iterInfo;
@@ -127,8 +128,9 @@ public:
 	__device__ NextNeighborControl nextNeighborInit2(const GAgent* ag, const float range, iterInfo &info) const;
 	__device__ NextNeighborControl nextNeighbor2(iterInfo &info) const;
 	__device__ void calcPtrAndBoarder(iterInfo &info) const;
-	__device__ void putAgentDataIntoSharedMem(iterInfo &info) const;
-	__device__ GAgentData_t getAgentDataIntoSharedMem(iterInfo &info) const;
+	__device__ void putAgentDataIntoSharedMem(const iterInfo &info) const;
+	__device__ dataUnion getAgentDataIntoSharedMem(iterInfo &info) const;
+	__device__ dataUnion *nextAgentDataIntoSharedMem(iterInfo &info) const;
 	//__global__ functions
 	friend void c2dUtil::gen_hash_kernel(int *hash, Continuous2D *c2d);
 	friend void c2dUtil::gen_cellIdx_kernel(int *hash, Continuous2D *c2d);
@@ -265,10 +267,14 @@ __device__ float Continuous2D::tdy(float ay, float by) const {
 	else
 		return BOARDER_D_D-dy;
 }
+#define SQRT_MAGIC_F 0x5f3759df 
 __device__ float Continuous2D::tds(const float2d_t loc1, const float2d_t loc2) const {
 	float dx = loc1.x - loc2.x;
+	float dxsq = dx*dx;
 	float dy = loc1.y - loc2.y;
-	return sqrt(dx*dx + dy*dy);
+	float dysq = dy*dy;
+	float x = dxsq+dysq;
+	return sqrt(x);
 }
 
 __device__ NextNeighborControl Continuous2D::nextNeighbor2(iterInfo &info) const {
@@ -284,20 +290,21 @@ __device__ NextNeighborControl Continuous2D::nextNeighborInit2(const GAgent* ag,
 	int *celldrx = (int*)&celluly[blockDim.x];
 	int *celldry = (int*)&celldrx[blockDim.x];
 
-	info.myLoc = ag->getLoc();
+	float2d_t myLoc = info.myLoc = ag->getLoc();
 	info.ptr = -1;
 	info.boarder = -1;
 	info.count = 0;
 	info.range = range;
+	info.ptrInSmem = 0;
 
-	info.cellUL.x = (info.myLoc.x-range)>BOARDER_L_D ? 
-		(int)((info.myLoc.x-range)/CLEN_X) : (int)BOARDER_L_D/CLEN_X;
-	info.cellDR.x = (info.myLoc.x+range)<BOARDER_R_D ? 
-		(int)((info.myLoc.x+range)/CLEN_X) : (int)BOARDER_R_D/CLEN_X - 1;
-	info.cellUL.y = (info.myLoc.y-range)>BOARDER_U_D ? 
-		(int)((info.myLoc.y-range)/CLEN_Y) : (int)BOARDER_U_D/CLEN_Y;
-	info.cellDR.y = (info.myLoc.y+range)<BOARDER_D_D ? 
-		(int)((info.myLoc.y+range)/CLEN_Y) : (int)BOARDER_D_D/CLEN_Y - 1;
+	info.cellUL.x = (myLoc.x-range)>BOARDER_L_D ? 
+		(int)((myLoc.x-range)/CLEN_X) : (int)BOARDER_L_D/CLEN_X;
+	info.cellDR.x = (myLoc.x+range)<BOARDER_R_D ? 
+		(int)((myLoc.x+range)/CLEN_X) : (int)BOARDER_R_D/CLEN_X - 1;
+	info.cellUL.y = (myLoc.y-range)>BOARDER_U_D ? 
+		(int)((myLoc.y-range)/CLEN_Y) : (int)BOARDER_U_D/CLEN_Y;
+	info.cellDR.y = (myLoc.y+range)<BOARDER_D_D ? 
+		(int)((myLoc.y+range)/CLEN_Y) : (int)BOARDER_D_D/CLEN_Y - 1;
 	cellulx[tid]=info.cellUL.x;
 	celluly[tid]=info.cellUL.y;
 	celldrx[tid]=info.cellDR.x;
@@ -324,24 +331,52 @@ __device__ void Continuous2D::calcPtrAndBoarder(iterInfo &info) const {
 	info.ptr = this->cellIdxStart[hash];
 	info.boarder = this->cellIdxEnd[hash];
 }
-__device__ void Continuous2D::putAgentDataIntoSharedMem(iterInfo &info) const {
+__device__ void Continuous2D::putAgentDataIntoSharedMem(const iterInfo &info) const {
 	 dataUnion * unionArray = (dataUnion*)&smem[4*blockDim.x];
 	 const unsigned int tid = threadIdx.x;
 	 const unsigned int wid = tid >> 5;
 	 const unsigned int lane = tid & 31;
 	 const int ptr = info.ptr + lane;
-	 if(ptr < info.boarder) {
+	 if(ptr <= info.boarder) {
 		GAgent *ag = this->obtainAgentByInfoPtr(ptr);
 		unionArray[tid].addValue(ag->getData());
 	 }
 	 dataUnion &unionLocal = unionArray[tid];
 	 unionLocal.preyData.dead = false;
-	 info.range = 150;
+	 float range = info.range;
+	 __syncthreads();
 }
-__device__ GAgentData_t Continuous2D::getAgentDataIntoSharedMem(iterInfo &info) const {
-	dataUnion * unionArray = (dataUnion*)&smem[4*blockDim.x];
+__device__ dataUnion Continuous2D::getAgentDataIntoSharedMem(iterInfo &info) const {
+	dataUnion *unionArray = (dataUnion*)&smem[4*blockDim.x];
 	const int tid = threadIdx.x;
-	const int ptr = info.ptr + threadIdx.x;
+	const int lane = tid & 31;
+	return unionArray[tid-lane+info.ptrInSmem];
+}
+__device__ dataUnion *Continuous2D::nextAgentDataIntoSharedMem(iterInfo &info) const {
+	dataUnion *unionArray = (dataUnion*)&smem[4*blockDim.x];
+	const int tid = threadIdx.x;
+	const int lane = tid & 31;
+	if (info.ptrInSmem == 0)
+		this->putAgentDataIntoSharedMem(info);
+	dataUnion *res = &unionArray[tid - lane + info.ptrInSmem];
+	info.ptrInSmem++;
+	info.ptr++;
+	if (info.ptr>info.boarder) {
+		info.ptrInSmem = 0;
+		info.cellCur.x++;
+		if(info.cellCur.x>info.cellDR.x){
+			info.cellCur.x = info.cellUL.x;
+			info.cellCur.y++;
+			if(info.cellCur.y>info.cellDR.y)
+				return NULL;
+		}
+		this->calcPtrAndBoarder(info);
+	}
+	if (info.ptrInSmem == 32){
+		info.ptrInSmem = 0;
+	}
+	__syncthreads();
+	return res;
 }
 //GAgent
 __device__ int GAgent::initId() {
@@ -511,7 +546,7 @@ __global__ void c2dUtil::gen_cellIdx_kernel(int *hash, Continuous2D *c2d)
 	}
 	if (idx == 0) {
 		c2d->cellIdxStart[hash[0]] = idx;
-		c2d->cellIdxEnd[hash[AGENT_NO_D-1]] = CELL_NO_D-1;
+		c2d->cellIdxEnd[hash[AGENT_NO_D-1]] = AGENT_NO_D-1;
 	}
 }
 void c2dUtil::sort_hash_kernel(int *hash, int *neighborIdx)
