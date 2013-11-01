@@ -3,8 +3,8 @@
 
 #include "gsimlib_header.cuh"
 
-enum BoidType {PREY_BOID, PREDATOR_BOID, FOOD_BOID};
-enum BoidState{HUNGRY, NORMAL, FLEEING, STARVING, SEEKING_MATE};
+__device__ __host__ enum BoidType {PREDATOR_BOID, FOOD_BOID, PREY_BOID};
+__device__ __host__ enum BoidState{HUNGRY, NORMAL, FLEEING, STARVING, SEEKING_MATE};
 
 typedef struct BaseBoidData : public GAgentData_t{
 	float2d_t lastd;
@@ -17,32 +17,33 @@ typedef struct BaseBoidData : public GAgentData_t{
 } BaseBoidData_t;
 
 typedef struct PreyBoidData : public BaseBoidData_t {
-
 } PreyBoidData_t;
 
 typedef struct FoodBoidData : public BaseBoidData_t{
 } FoodBoidData_t;
 
-union dataUnion {
-	GAgentData_t agData;
-	BaseBoidData_t baseData;
-	PreyBoidData_t preyData;
-	FoodBoidData_t foodData;
+typedef struct dataUnionStruct {
+	float2d_t lastd;
+	bool dead;
+	BoidType btype;
+	BoidState bstate;
+	int id;
+	float2d_t loc;
 	__device__ void addValue(GAgentData_t *data){
 		BaseBoidData_t *boidData = (BaseBoidData_t*)data;
 		BoidType bt = boidData->btype;
-		switch (bt) {
-		case BoidType::FOOD_BOID: 
-			break;
-		case BoidType::PREY_BOID:
+		if (bt == 2){
 			PreyBoidData_t *pd = (PreyBoidData*)data;
-			preyData = *pd;
-			break;
-		case BoidType::PREDATOR_BOID:
-			break;
-		}
+			bstate = pd->bstate;
+			btype = pd->btype;
+			dead = pd->dead;
+			id = pd->id;
+			lastd = pd->lastd;
+			loc = pd->loc;
+		} else if(bt == FOOD_BOID)
+			;
 	}
-};
+}dataUnion;
 
 namespace CONSTANT{
 	// CONSTANTS FOR PREY BOIDS

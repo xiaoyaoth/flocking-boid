@@ -81,7 +81,6 @@ typedef struct GAgentData{
 	int id;
 	float2d_t loc;
 } GAgentData_t;
-union dataUnion;
 
 namespace SCHEDULE_CONSTANT{
 	static const float EPOCH = 0.0;
@@ -114,5 +113,7 @@ inline void __getLastCudaError( const char *errorMessage, const char *file, cons
 		exit(-1);
 	}
 }
+
+__device__ float *randDebug;
 
 #endif

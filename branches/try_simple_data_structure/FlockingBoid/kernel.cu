@@ -206,6 +206,9 @@ void readRandDebug(float *devRandDebug, std::string str1, std::string str2){
 }
 
 void writeRandDebug(int i, float* devRandDebug){
+	float *hostRandDebug2 = (float*)malloc(sizeof(float));
+	cudaMemcpy(hostRandDebug2, devRandDebug, sizeof(float), cudaMemcpyDeviceToHost);
+	std::cout<<"hostRandDebug2 "<<hostRandDebug2[0]<<std::endl;
 	if (FILE_GEN == 1){
 		int gSize = GRID_SIZE;
 		if (i == SELECTION) {		
@@ -236,16 +239,35 @@ void writeRandDebug(int i, float* devRandDebug){
 	}
 }
 
+__global__ void checkEverything(BoidModel *model){
+	//const int idx = threadIdx.x + blockIdx.x * blockDim.x;
+	Continuous2D *world = model->getWorld();
+	GScheduler * sch = model->getScheduler();
+	const int *localNeiIdx = world->getNeighborIdx();
+	for (int i=0; i<AGENT_NO_D; i++) {
+		int agIdx = localNeiIdx[i];
+		GAgent *ag = sch->obtainAgentById(agIdx);
+		ag->getData()->id = agIdx;
+	}
+}
+
 void oneStep(BoidModel *model, BoidModel *model_h){
 	int gSize = GRID_SIZE;
 	size_t sizeOfSmem = BLOCK_SIZE * (
 		4*sizeof(int)
 		+ sizeof(dataUnion)
 		);
+	getLastCudaError("before loop");
 	c2dUtil::genNeighbor(model_h->world, model_h->worldH);
+	checkEverything<<<gSize, BLOCK_SIZE, sizeOfSmem>>>(model);
 	schUtil::step<<<gSize, BLOCK_SIZE, sizeOfSmem>>>(model);
-	c2dUtil::swapAgentsInWorld<<<gSize, BLOCK_SIZE>>>(model_h->world);
-	schUtil::swapAgentsInScheduler<<<gSize, BLOCK_SIZE>>>(model);
+	//c2dUtil::swapAgentsInWorld<<<gSize, BLOCK_SIZE>>>(model_h->world);
+	//schUtil::swapAgentsInScheduler<<<gSize, BLOCK_SIZE>>>(model);
+	
+	/*Continuous2D *world_temp = new Continuous2D(100, 100, 100);
+	cudaMemcpy(world_temp, model_h->world, sizeof(Continuous2D), cudaMemcpyDeviceToHost);
+	std::cout<<world_temp->discretization<<std::endl;*/
+	getLastCudaError("end loop");
 }
 
 int main(int argc, char *argv[]){
@@ -269,8 +291,11 @@ int main(int argc, char *argv[]){
 		sizeof(PreyBoid), AGENT_NO*sizeof(PreyBoid));
 	printf("size taken by one iterInfo: %d\n", sizeof(iterInfo));
 	printf("size taken by one dataUnion: %d\n", sizeof(dataUnion));
-	addAgentsOnDevice<<<gSize, BLOCK_SIZE>>>(model, x_pos, y_pos);
+	size_t pVal;
+	cudaDeviceGetLimit(&pVal, cudaLimitMallocHeapSize);
+	printf("cudaLimitMallocHeapSize: %d", pVal);
 
+	addAgentsOnDevice<<<gSize, BLOCK_SIZE>>>(model, x_pos, y_pos);
 	//schUtil::scheduleRepeatingAllAgents<<<1, BLOCK_SIZE>>>(model);
 	getLastCudaError("before going into the big loop");
 	printf("steps: %d\n", STEPS);
@@ -283,7 +308,7 @@ int main(int argc, char *argv[]){
 
 	GSimVisual::getInstance().setWorld(model_h->world);
 	for (int i=0; i<STEPS; i++){
-		//printf("STEP:%d\n", i);
+		printf("STEP:%d\n", i);
 		oneStep(model, model_h);
 		GSimVisual::getInstance().animate();
 		writeRandDebug(i, devRandDebug);
