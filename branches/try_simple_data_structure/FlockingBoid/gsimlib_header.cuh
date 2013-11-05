@@ -115,5 +115,6 @@ inline void __getLastCudaError( const char *errorMessage, const char *file, cons
 }
 
 __device__ float *randDebug;
+#define BOID_DEBUG
 
 #endif

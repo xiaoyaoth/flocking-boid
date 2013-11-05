@@ -87,6 +87,7 @@ copy "$(CudaToolkitBinDir)\cudart*.dll" "$(OutDir)"</Command>
     <CudaCompile>
       <Include>./;$(CUDA_SDK_PATH)/C/common/inc;$(CUDA_SDK_PATH)/shared/inc;$(CudaToolkitIncludeDir)</Include>
       <CodeGeneration>compute_20,sm_20</CodeGeneration>
+      <Optimization>O3</Optimization>
     </CudaCompile>
   </ItemDefinitionGroup>
   <ItemGroup>

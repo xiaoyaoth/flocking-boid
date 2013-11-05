@@ -206,9 +206,10 @@ void readRandDebug(float *devRandDebug, std::string str1, std::string str2){
 }
 
 void writeRandDebug(int i, float* devRandDebug){
-	float *hostRandDebug2 = (float*)malloc(sizeof(float));
-	cudaMemcpy(hostRandDebug2, devRandDebug, sizeof(float), cudaMemcpyDeviceToHost);
-	std::cout<<"hostRandDebug2 "<<hostRandDebug2[0]<<std::endl;
+	//float *hostRandDebug2 = (float*)malloc(sizeof(float));
+	//cudaMemcpy(hostRandDebug2, devRandDebug, sizeof(float), cudaMemcpyDeviceToHost);
+	//if (hostRandDebug2[0] != 0)
+	//	std::cout<<"hostRandDebug2 "<<hostRandDebug2[0]<<std::endl;
 	if (FILE_GEN == 1){
 		int gSize = GRID_SIZE;
 		if (i == SELECTION) {		
@@ -259,14 +260,10 @@ void oneStep(BoidModel *model, BoidModel *model_h){
 		);
 	getLastCudaError("before loop");
 	c2dUtil::genNeighbor(model_h->world, model_h->worldH);
-	checkEverything<<<gSize, BLOCK_SIZE, sizeOfSmem>>>(model);
+	//checkEverything<<<gSize, BLOCK_SIZE, sizeOfSmem>>>(model);
 	schUtil::step<<<gSize, BLOCK_SIZE, sizeOfSmem>>>(model);
-	//c2dUtil::swapAgentsInWorld<<<gSize, BLOCK_SIZE>>>(model_h->world);
-	//schUtil::swapAgentsInScheduler<<<gSize, BLOCK_SIZE>>>(model);
-	
-	/*Continuous2D *world_temp = new Continuous2D(100, 100, 100);
-	cudaMemcpy(world_temp, model_h->world, sizeof(Continuous2D), cudaMemcpyDeviceToHost);
-	std::cout<<world_temp->discretization<<std::endl;*/
+	c2dUtil::swapAgentsInWorld<<<gSize, BLOCK_SIZE>>>(model_h->world);
+	schUtil::swapAgentsInScheduler<<<gSize, BLOCK_SIZE>>>(model);
 	getLastCudaError("end loop");
 }
 
