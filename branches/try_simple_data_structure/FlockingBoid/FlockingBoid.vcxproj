@@ -91,6 +91,7 @@ copy "$(CudaToolkitBinDir)\cudart*.dll" "$(OutDir)"</Command>
     </CudaCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <None Include="config.txt" />
     <None Include="gsimapp_boid.cuh" />
     <None Include="gsimapp_header.cuh" />
     <None Include="gsimcore.cuh">
@@ -99,6 +100,7 @@ copy "$(CudaToolkitBinDir)\cudart*.dll" "$(OutDir)"</Command>
     <CudaCompile Include="kernel.cu" />
     <None Include="gsimvisual.cuh" />
     <None Include="gsimlib_header.cuh" />
+    <None Include="pos_data.txt.10240" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

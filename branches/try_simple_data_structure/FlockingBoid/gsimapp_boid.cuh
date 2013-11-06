@@ -71,22 +71,22 @@ public:
 	__device__ PreyBoid(){
 		PreyBoid(0,0, NULL);
 	}
-	__device__ PreyBoid(const PreyBoid &twin){
-		this->HUNGER_LIMIT = twin.HUNGER_LIMIT;
-		this->STARVE_LIMIT = twin.STARVE_LIMIT;
-		this->DEFAULT_SPEED = twin.DEFAULT_SPEED;
-		this->model = twin.model;
-		this->dummy = (GAgent*)&twin;
-		this->time = twin.time;
-		this->rank = twin.rank;
-		this->data = new PreyBoidData_t();
-		PreyBoidData_t *myData = (PreyBoidData_t*)this->data;
-		PreyBoidData_t &otherData = (PreyBoidData_t&)*twin.data;
-		myData->id = otherData.id;
-		myData->loc.x = otherData.loc.x;
-		myData->loc.y = otherData.loc.y;
-		myData->btype = otherData.btype;
-		myData->bstate = otherData.bstate;
+	__device__ PreyBoid(PreyBoid *twin){
+		this->HUNGER_LIMIT = twin->HUNGER_LIMIT;
+		this->STARVE_LIMIT = twin->STARVE_LIMIT;
+		this->DEFAULT_SPEED = twin->DEFAULT_SPEED;
+		this->model = twin->model;
+		this->time = twin->time;
+		this->rank = twin->rank;
+		PreyBoidData_t *myData = new PreyBoidData_t();
+		PreyBoidData_t *otherData = (PreyBoidData_t*)twin->getData();
+		myData->id = otherData->id;
+		myData->loc.x = otherData->loc.x;
+		myData->loc.y = otherData->loc.y;
+		myData->btype = otherData->btype;
+		myData->bstate = otherData->bstate;
+		this->data = myData;
+		this->dummy = twin;
 	}
 	__device__ PreyBoid(float x, float y, BoidModel *model){
 		this->HUNGER_LIMIT = CONSTANT::PREY_HUNGER_LIMIT;
@@ -95,13 +95,14 @@ public:
 		this->model = model;
 		this->time = 0;
 		this->rank = 0;
-		this->data = new PreyBoidData_t();
-		PreyBoidData_t *myData = (PreyBoidData_t*)this->data;
+		PreyBoidData_t *myData = new PreyBoidData_t();
 		myData->id = this->initId();
 		myData->loc.x = x;
 		myData->loc.y = y;
 		myData->btype = PREY_BOID;
 		myData->bstate = BoidState::SEEKING_MATE;
+		this->data = myData;;
+		this->dummy = new PreyBoid(this);
 	}
 	__device__ bool hungry();
 	__device__ void eat(FoodBoid *food);
@@ -411,14 +412,14 @@ __device__ void PreyBoid::step(GModel *model){
 		dx = dx / dist * boidModel->jump;
 		dy = dy / dist * boidModel->jump;
 	}
-
-	PreyBoidData_t dummyData;
+	 
+	PreyBoidData_t *dummyDataPtr = (PreyBoidData_t*)dummy->getData();
+	PreyBoidData_t dummyData = *dummyDataPtr;
 	float2d_t myLoc = this->data->loc;
 	dummyData.lastd.x = dx;
 	dummyData.lastd.y = dy;
 	dummyData.loc.x = world->stx(myLoc.x + dx);
 	dummyData.loc.y = world->sty(myLoc.y + dy);
-	PreyBoidData *dummyDataPtr = (PreyBoidData_t*)dummy->getData();
 	*dummyDataPtr = dummyData;
 
 	/*BaseBoid *dummy = (BaseBoid*)this->dummy;
