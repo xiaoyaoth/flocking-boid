@@ -214,7 +214,8 @@ __device__ void Continuous2D::swap(){
 	const int idx = threadIdx.x + blockIdx.x * blockDim.x;
 	if (idx<AGENT_NO_D){
 		GAgent *ag = this->allAgents[idx];
-		this->allAgents[idx] = ag->getDummy();
+		GAgent *dummy = ag->getDummy();
+		this->allAgents[idx] = dummy;
 	}
 }
 __device__ GAgent* Continuous2D::obtainAgentPerThread() const {
@@ -326,12 +327,6 @@ __device__ dataUnion* Continuous2D::nextNeighborInit2(const GAgent* ag, const fl
 #endif
 
 	this->calcPtrAndBoarder(info);
-	//this->putAgentDataIntoSharedMem(info);
-	//dataUnion *unionArray = (dataUnion*)&smem[4*blockDim.x];
-	//dataUnion *elem = &unionArray[tid-lane];
-	//if (elem->id == -1)
-	//	elem = NULL;
-	//return elem;
 	return NULL;
 }
 __device__ void Continuous2D::resetNeighborInit(iterInfo &info) const{
@@ -360,7 +355,6 @@ __device__ void Continuous2D::putAgentDataIntoSharedMem(const iterInfo &info) co
 	 int tid = threadIdx.x;
 	 int lane = tid & 31;
 	 int ptr = info.ptr + lane;
-	 randDebug[0] = info.ptr;
 	 if(ptr < AGENT_NO_D && ptr >= 0) {
 		 if (ptr <= info.boarder) {
 			 GAgent *ag = this->obtainAgentByInfoPtr(ptr);
@@ -369,8 +363,8 @@ __device__ void Continuous2D::putAgentDataIntoSharedMem(const iterInfo &info) co
 			 unionArray[tid].id = -1;
 	 }
 #ifdef BOID_DEBUG
-	 else if (ptr < 0 || ptr > AGENT_NO_D + 32.){
-		 printf("Continuous2D::putAgentDataIntoSharedMem: ptr is %d\n", ptr);
+	 else if (ptr < -1 || ptr > AGENT_NO_D + 32){
+		 printf("Continuous2D::putAgentDataIntoSharedMem: ptr is %d, info.ptr is %d, lane is %d\n", ptr, info.ptr, lane);
 	 }
 #endif
 	 __syncthreads();
@@ -554,6 +548,7 @@ __device__ int zcode(int x, int y){
 }
 __global__ void c2dUtil::gen_hash_kernel(int *hash, Continuous2D *c2d)
 {
+	__syncthreads();
 	GAgent *ag = c2d->obtainAgentPerThread();
 	int idx = ag->getId();
 	float2d_t myLoc = ag->getLoc();

@@ -45,11 +45,6 @@ __global__ void addAgentsOnDevice(BoidModel *gm, float *x_pos, float *y_pos){
 	const int idx = threadIdx.x + blockIdx.x * blockDim.x;
 	if (idx < AGENT_NO_D){ // user init step
 		PreyBoid *ag = new PreyBoid(x_pos[idx], y_pos[idx], gm);
-
-		PreyBoid *dummy = new PreyBoid(*ag);
-		dummy->model = gm;
-
-		ag->setDummy(dummy);
 		gm->addToScheduler(ag, idx);
 		gm->addToWorld(ag, idx);
 	}
@@ -267,7 +262,7 @@ void oneStep(BoidModel *model, BoidModel *model_h){
 	getLastCudaError("end loop");
 }
 
-int main(int argc, char *argv[]){
+void mainWork(){
 	cudaDeviceSetCacheConfig(cudaFuncCachePreferShared);
 	readConfig();
 	int gSize = GRID_SIZE;
@@ -305,7 +300,7 @@ int main(int argc, char *argv[]){
 
 	GSimVisual::getInstance().setWorld(model_h->world);
 	for (int i=0; i<STEPS; i++){
-		printf("STEP:%d\n", i);
+		if ((i & 1023) == 0) printf("STEP:%d\n", i);
 		oneStep(model, model_h);
 		GSimVisual::getInstance().animate();
 		writeRandDebug(i, devRandDebug);
@@ -313,5 +308,13 @@ int main(int argc, char *argv[]){
 	GSimVisual::getInstance().stop();
 	getLastCudaError("finished");
 	//system("PAUSE");
-	return 0;
+}
+
+int main(int argc, char *argv[]){
+	int start = GetTickCount();
+	mainWork();
+	int end = GetTickCount();
+	int diff = end-start;
+	std::cout<<"Took "<<diff<<" ms"<<std::endl;
+	system("PAUSE");
 }
