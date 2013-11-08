@@ -100,8 +100,8 @@ public:
 		myData->loc.x = x;
 		myData->loc.y = y;
 		myData->btype = PREY_BOID;
-		myData->bstate = BoidState::SEEKING_MATE;
-		this->data = myData;;
+		myData->bstate = SEEKING_MATE;
+		this->data = myData;
 		this->dummy = new PreyBoid(this);
 	}
 	__device__ bool hungry();
@@ -440,6 +440,7 @@ __device__ void PreyBoid::step1(GModel *model){
 	float x=0, y=0, dx=0, dy=0;
 	float sqrDist, ds;
 	int ptrInSmem = 0;
+
 
 	dataUnion *elem = world->nextNeighborInit2(this, 150, info);
 	while(elem != NULL){
