@@ -3,11 +3,11 @@
 
 #include "gsimlib_header.cuh"
 #include "gsimapp_header.cuh"
-#include <thrust\sort.h>
-#include <thrust\device_vector.h>
-#include <thrust\device_ptr.h>
-#include <thrust\functional.h>
-#include <thrust\transform.h>
+#include <thrust/sort.h>
+#include <thrust/device_vector.h>
+#include <thrust/device_ptr.h>
+#include <thrust/functional.h>
+#include <thrust/transform.h>
 #include <curand_kernel.h>
 
 //class delaration
@@ -36,9 +36,9 @@ typedef struct iter_info_per_thread
 extern __shared__ int smem[];
 
 namespace c2dUtil{
-	void gen_hash_kernel(int *hash, Continuous2D *c2d);
+	__global__ void gen_hash_kernel(int *hash, Continuous2D *c2d);
 	void sort_hash_kernel(int *hash, int *neighborIdx);
-	void gen_cellIdx_kernel(int *hash, Continuous2D *c2d);
+	__global__ void gen_cellIdx_kernel(int *hash, Continuous2D *c2d);
 	void queryNeighbor(Continuous2D *c2d);
 	void genNeighbor(Continuous2D *world, Continuous2D *world_h);
 	__global__ void swapAgentsInWorld(Continuous2D *world);
@@ -131,8 +131,8 @@ public:
 	__device__ dataUnion getAgentDataIntoSharedMem(iterInfo &info) const;
 	__device__ dataUnion *nextAgentDataIntoSharedMem(iterInfo &info) const;
 	//__global__ functions
-	friend void c2dUtil::gen_hash_kernel(int *hash, Continuous2D *c2d);
-	friend void c2dUtil::gen_cellIdx_kernel(int *hash, Continuous2D *c2d);
+	friend __global__ void c2dUtil::gen_hash_kernel(int *hash, Continuous2D *c2d);
+	friend __global__ void c2dUtil::gen_cellIdx_kernel(int *hash, Continuous2D *c2d);
 	friend void c2dUtil::genNeighbor(Continuous2D *world, Continuous2D *world_h);
 	friend void c2dUtil::queryNeighbor(Continuous2D *c2d);
 	//friend class GModel;
@@ -166,7 +166,7 @@ public:
 	__device__ float nextFloat();
 	__device__ float nextGaussian();
 	__device__ float nextFloat(curandState *state);
-	friend void rgenUtil::initStates(GRandomGen *rgen, int seed);
+	friend __global__ void rgenUtil::initStates(GRandomGen *rgen, int seed);
 };
 class GModel{
 protected:
