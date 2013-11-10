@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 11.00
 # Visual Studio 2010
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "FlockingBoid", "FlockingBoid\FlockingBoid.vcxproj", "{A8867CDA-BA27-4569-AD02-6EBEF3B6A73F}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "FlockingBoid", "FlockingBoid\FlockingBoid.vcxproj", "{59950DBA-BBBE-4A33-BCC8-3AF4545D848A}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Test", "Test\Test.vcxproj", "{4D747D5F-B5A2-4B9F-A1B4-3B65674554D6}"
 EndProject
@@ -30,10 +30,10 @@ Global
 		Release|Win32 = Release|Win32
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{A8867CDA-BA27-4569-AD02-6EBEF3B6A73F}.Debug|Win32.ActiveCfg = Debug|Win32
-		{A8867CDA-BA27-4569-AD02-6EBEF3B6A73F}.Debug|Win32.Build.0 = Debug|Win32
-		{A8867CDA-BA27-4569-AD02-6EBEF3B6A73F}.Release|Win32.ActiveCfg = Release|Win32
-		{A8867CDA-BA27-4569-AD02-6EBEF3B6A73F}.Release|Win32.Build.0 = Release|Win32
+		{59950DBA-BBBE-4A33-BCC8-3AF4545D848A}.Debug|Win32.ActiveCfg = Debug|Win32
+		{59950DBA-BBBE-4A33-BCC8-3AF4545D848A}.Debug|Win32.Build.0 = Debug|Win32
+		{59950DBA-BBBE-4A33-BCC8-3AF4545D848A}.Release|Win32.ActiveCfg = Release|Win32
+		{59950DBA-BBBE-4A33-BCC8-3AF4545D848A}.Release|Win32.Build.0 = Release|Win32
 		{4D747D5F-B5A2-4B9F-A1B4-3B65674554D6}.Debug|Win32.ActiveCfg = Debug|Win32
 		{4D747D5F-B5A2-4B9F-A1B4-3B65674554D6}.Debug|Win32.Build.0 = Debug|Win32
 		{4D747D5F-B5A2-4B9F-A1B4-3B65674554D6}.Release|Win32.ActiveCfg = Release|Win32
