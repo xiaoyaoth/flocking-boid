@@ -37,4 +37,21 @@
       <Filter>Resource Files</Filter>
     </None>
   </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="common\gpu_anim.h">
+      <Filter>lib</Filter>
+    </ClInclude>
+    <ClInclude Include="common\cpu_anim.h">
+      <Filter>lib</Filter>
+    </ClInclude>
+    <ClInclude Include="common\cpu_bitmap.h">
+      <Filter>lib</Filter>
+    </ClInclude>
+    <ClInclude Include="common\gl_helper.h">
+      <Filter>lib</Filter>
+    </ClInclude>
+    <ClInclude Include="common\book.h">
+      <Filter>lib</Filter>
+    </ClInclude>
+  </ItemGroup>
 </Project>
