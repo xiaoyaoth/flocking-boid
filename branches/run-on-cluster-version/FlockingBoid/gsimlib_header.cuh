@@ -9,7 +9,7 @@
 #include "device_launch_parameters.h"
 #include "float.h"
 
-__constant__ int AGENT_NO_D;	//copied from host
+__constant__ int AGENT_NO_D;		//copied from host
 __constant__ int CELL_NO_D;		//copied from host
 __constant__ int BOARDER_L_D;	//copied from host
 __constant__ int BOARDER_R_D;	//copied from host

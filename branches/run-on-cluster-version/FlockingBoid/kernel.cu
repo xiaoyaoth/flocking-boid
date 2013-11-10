@@ -6,7 +6,12 @@
 #include <sstream>
 #include <iterator>
 #include <iomanip>
+#ifdef _WIN32
+#include <Windows.h>
+#include "gsimvisual.cuh"
+#else
 #include <sys/time.h>
+#endif
 #include "cuda.h"
 __global__ void seeAllAgents(BoidModel *gm){
 	GAgent *ag = gm->getScheduler()->obtainAgentPerThread();
@@ -81,7 +86,6 @@ void test1(){
 		schUtil::step<<<gSize, BLOCK_SIZE>>>(model);
 }
 
-__device__ int test_d;
 
 void readConfig(){
 	std::ifstream fin;
@@ -90,13 +94,6 @@ void readConfig(){
 	char *cstr, *p;
 	cstr = (char *)malloc(100 * sizeof(char));
 	int CELL_RESO_TEMP;
-
-	int test_h = 1234;
-	int *test_symbol;
-	cudaGetSymbolAddress((void**)&test_symbol, &test_d);
-	getLastCudaError("readConfig:cudaGetSymbolAddress");
-	cudaMemcpyToSymbol(test_symbol, &test_h, sizeof(int));
-	getLastCudaError("readConfig:cudaMemcpyToSymbol");
 
 	while (!fin.eof()) {
 		std::getline(fin, rec);
@@ -107,9 +104,7 @@ void readConfig(){
 		if(strcmp(p, "AGENT_NO")==0){
 			p=strtok(NULL, "=");
 			AGENT_NO = atoi(p);
-			int *AGENT_NO_SYMBOL;
-			cudaGetSymbolAddress((void**)&AGENT_NO_SYMBOL,"AGENT_NO");
-			cudaMemcpyToSymbol(AGENT_NO_SYMBOL, &AGENT_NO, sizeof(int));
+			cudaMemcpyToSymbol(AGENT_NO_D, &AGENT_NO, sizeof(int), 0, cudaMemcpyHostToDevice);
 			getLastCudaError("readConfig");
 		}
 		if(strcmp(p, "BOARDER_L")==0){
@@ -312,17 +307,28 @@ void mainWork(){
 	cudaMalloc((void**)&devRandDebug, STRIP*gSize*BLOCK_SIZE*sizeof(float));
 	cudaMemcpyToSymbol(randDebug, &devRandDebug, sizeof(devRandDebug),
 		0, cudaMemcpyHostToDevice);
-
+#ifdef _WIN32
+	GSimVisual::getInstance().setWorld(model_h->world);
+	for (int i=0; i<STEPS; i++){
+		printf("STEP:%d\n", i);
+		oneStep(model, model_h);
+		GSimVisual::getInstance().animate();
+		writeRandDebug(i, devRandDebug);
+	}
+	GSimVisual::getInstance().stop();
+#else
 	for (int i=0; i<STEPS; i++){
 	 	printf("STEP:%d\n", i);
 		oneStep(model, model_h);
 		writeRandDebug(i, devRandDebug);
 	}
+#endif
 	getLastCudaError("finished");
 	//system("PAUSE");
 }
 
 int main(int argc, char *argv[]){
+#ifndef _WIN32
 	struct timeval start, end;
 	gettimeofday(&start, NULL);
 	mainWork();
@@ -330,4 +336,12 @@ int main(int argc, char *argv[]){
 	printf("%ld\n", ((end.tv_sec * 1000000 + end.tv_usec)
 		  - (start.tv_sec * 1000000 + start.tv_usec)));
 	system("PAUSE");
+#else
+	int start = GetTickCount();
+	mainWork();
+	int end = GetTickCount();
+	int diff = end-start;
+	std::cout<<"Took "<<diff<<" ms"<<std::endl;
+	system("PAUSE");
+#endif
 }
