@@ -318,7 +318,7 @@ __device__ float2d_t PreyBoid::consistency(const Continuous2D *world){
 __device__ float2d_t PreyBoid::cohesion(const Continuous2D *world){
 	iterInfo info; 
 	float x=0, y=0;
-	float sqrDist, ds;
+	float ds;
 	dataUnion otherData;
 	world->nextNeighborInit2(this, 150, info);
 	dataUnion *elem = world->nextAgentDataIntoSharedMem(info);
