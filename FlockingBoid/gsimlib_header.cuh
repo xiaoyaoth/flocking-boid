@@ -48,17 +48,16 @@ typedef struct int_2d
 	__device__ __host__ int zcode(){
 		int xt = x;
 		int yt = y;
-		xt &= 0x0000ffff;                 // x = ---- ---- ---- ---- fedc ba98 7654 3210
+		xt &= 0x0000ffff;					// x = ---- ---- ---- ---- fedc ba98 7654 3210
+		yt &= 0x0000ffff;					// x = ---- ---- ---- ---- fedc ba98 7654 3210
 		xt = (xt ^ (xt << 8)) & 0x00ff00ff; // x = ---- ---- fedc ba98 ---- ---- 7654 3210
-		xt = (xt ^ (xt << 4)) & 0x0f0f0f0f; // x = ---- fedc ---- ba98 ---- 7654 ---- 3210
-		xt = (xt ^ (xt << 2)) & 0x33333333; // x = --fe --dc --ba --98 --76 --54 --32 --10
-		xt = (xt ^ (xt << 1)) & 0x55555555; // x = -f-e -d-c -b-a -9-8 -7-6 -5-4 -3-2 -1-0
-
-		yt &= 0x0000ffff;                  // x = ---- ---- ---- ---- fedc ba98 7654 3210
 		yt = (yt ^ (yt << 8)) & 0x00ff00ff; // x = ---- ---- fedc ba98 ---- ---- 7654 3210
 		yt = (yt ^ (yt << 4)) & 0x0f0f0f0f; // x = ---- fedc ---- ba98 ---- 7654 ---- 3210
+		xt = (xt ^ (xt << 4)) & 0x0f0f0f0f; // x = ---- fedc ---- ba98 ---- 7654 ---- 3210
 		yt = (yt ^ (yt << 2)) & 0x33333333; // x = --fe --dc --ba --98 --76 --54 --32 --10
+		xt = (xt ^ (xt << 2)) & 0x33333333; // x = --fe --dc --ba --98 --76 --54 --32 --10
 		yt = (yt ^ (yt << 1)) & 0x55555555; // x = -f-e -d-c -b-a -9-8 -7-6 -5-4 -3-2 -1-0
+		xt = (xt ^ (xt << 1)) & 0x55555555; // x = -f-e -d-c -b-a -9-8 -7-6 -5-4 -3-2 -1-0
 
 		return xt | (yt << 1);
 	}
@@ -82,7 +81,6 @@ typedef struct GAgentData{
 	int id;
 	float2d_t loc;
 } GAgentData_t;
-union dataUnion;
 
 namespace SCHEDULE_CONSTANT{
 	static const float EPOCH = 0.0;
@@ -115,5 +113,8 @@ inline void __getLastCudaError( const char *errorMessage, const char *file, cons
 		exit(-1);
 	}
 }
+
+__device__ float *randDebug;
+#define BOID_DEBUG
 
 #endif
