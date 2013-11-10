@@ -7,8 +7,9 @@
 #include <iostream>
 #include "cuda_runtime.h"
 #include "device_launch_parameters.h"
+#include "float.h"
 
-__constant__ int AGENT_NO_D;	//copied from host
+__constant__ int AGENT_NO_D;		//copied from host
 __constant__ int CELL_NO_D;		//copied from host
 __constant__ int BOARDER_L_D;	//copied from host
 __constant__ int BOARDER_R_D;	//copied from host
@@ -42,7 +43,7 @@ typedef struct int_2d
 	int x;
 	int y;
 
-	__device__ __host__ int cell_id(){
+	__device__ int cell_id(){
 		return y * CNO_PER_DIM + x;
 	}
 	__device__ __host__ int zcode(){
