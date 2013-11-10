@@ -275,7 +275,7 @@ void mainWork(){
 	cudaDeviceSetCacheConfig(cudaFuncCachePreferShared);
 	getLastCudaError("setting cache preference");
 	readConfig();
-	int gSize = GRID_SIZE;
+	int gSize = GRID_SIZE; 
 
 	BoidModel *model_h = new BoidModel();
 	model_h->allocOnDevice();
