@@ -605,12 +605,6 @@ NextNeighborControl Continuous2D::nextNeighborInit2(const GAgent* ag,
 }
 const GAgentData_t *Continuous2D::obtainAgentDataByIterInfo2() const{
 	int ptr = infoArray[tid].ptr;
-	if (ptr>=bid*256 && ptr<(bid+1)*256){
-		hit++;
-		dataUnion *unionArray = (dataUnion*)&infoArray[AGENT_NO];
-		dataUnion &dataElem = unionArray[ptr];
-		return (GAgentData_t*)&dataElem;
-	}
 	if (ptr<AGENT_NO && ptr>=0){
 		nonhit++;
 		const int agIdx = this->neighborIdx[ptr];
