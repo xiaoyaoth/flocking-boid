@@ -1,13 +1,18 @@
 #include "gsimcore.cuh"
 #include "gsimapp_boid.cuh"
-#include "gsimvisual.cuh"
 #include <fstream>
 #include <iostream>
 #include <string>
 #include <sstream>
 #include <iterator>
 #include <iomanip>
-
+#ifdef _WIN32
+#include <Windows.h>
+#include "gsimvisual.cuh"
+#else
+#include <sys/time.h>
+#endif
+#include "cuda.h"
 __global__ void seeAllAgents(BoidModel *gm){
 	GAgent *ag = gm->getScheduler()->obtainAgentPerThread();
 	if (ag != NULL)
@@ -81,6 +86,7 @@ void test1(){
 		schUtil::step<<<gSize, BLOCK_SIZE>>>(model);
 }
 
+
 void readConfig(){
 	std::ifstream fin;
 	fin.open("config.txt");
@@ -99,26 +105,31 @@ void readConfig(){
 			p=strtok(NULL, "=");
 			AGENT_NO = atoi(p);
 			cudaMemcpyToSymbol(AGENT_NO_D, &AGENT_NO, sizeof(int), 0, cudaMemcpyHostToDevice);
+			getLastCudaError("readConfig");
 		}
 		if(strcmp(p, "BOARDER_L")==0){
 			p=strtok(NULL, "=");
 			BOARDER_L_H = atoi(p);
-			cudaMemcpyToSymbol(BOARDER_L_D, &BOARDER_L_H, sizeof(int), 0, cudaMemcpyHostToDevice);
+			cudaMemcpyToSymbol(BOARDER_L_D, &BOARDER_L_H, sizeof(int));
+			getLastCudaError("readConfig");
 		}
 		if(strcmp(p, "BOARDER_R")==0){
 			p=strtok(NULL, "=");
 			BOARDER_R_H = atoi(p);
-			cudaMemcpyToSymbol(BOARDER_R_D, &BOARDER_R_H, sizeof(int), 0, cudaMemcpyHostToDevice);
+			cudaMemcpyToSymbol(BOARDER_R_D, &BOARDER_R_H, sizeof(int));
+			getLastCudaError("readConfig");
 		}
 		if(strcmp(p, "BOARDER_U")==0){
 			p=strtok(NULL, "=");
 			BOARDER_U_H = atoi(p);
-			cudaMemcpyToSymbol(BOARDER_U_D, &BOARDER_U_H, sizeof(int), 0, cudaMemcpyHostToDevice);
+			cudaMemcpyToSymbol(BOARDER_U_D, &BOARDER_U_H, sizeof(int));
+			getLastCudaError("readConfig");
 		}
 		if(strcmp(p, "BOARDER_D")==0){
 			p=strtok(NULL, "=");
 			BOARDER_D_H = atoi(p);
-			cudaMemcpyToSymbol(BOARDER_D_D, &BOARDER_D_H, sizeof(int), 0, cudaMemcpyHostToDevice);
+			cudaMemcpyToSymbol(BOARDER_D_D, &BOARDER_D_H, sizeof(int));
+			getLastCudaError("readConfig");
 		}
 		if(strcmp(p, "DISCRETI")==0){
 			p=strtok(NULL, "=");
@@ -149,27 +160,25 @@ void readConfig(){
 			BLOCK_SIZE = atoi(p);
 		}
 	}
-	getLastCudaError("readConfig");
 	free(cstr);
 	fin.close();
 
 	int CNO_PER_DIM_H = (int)pow((float)2, DISCRETI);
-	cudaMemcpyToSymbol(CNO_PER_DIM, &CNO_PER_DIM_H, 
-		sizeof(int), 0, cudaMemcpyHostToDevice);
+	cudaMemcpyToSymbol(CNO_PER_DIM, &CNO_PER_DIM_H, sizeof(int));
+	getLastCudaError("readConfig");
 	
 	CELL_NO = CNO_PER_DIM_H * CNO_PER_DIM_H;
-	cudaMemcpyToSymbol(CELL_NO_D, &CELL_NO, 
-		sizeof(int), 0, cudaMemcpyHostToDevice);
+	cudaMemcpyToSymbol(CELL_NO_D, &CELL_NO, sizeof(int));
+	getLastCudaError("readConfig");
 	
 	float CLEN_X_H = (float)(BOARDER_R_H-BOARDER_L_H)/CNO_PER_DIM_H;
 	float CLEN_Y_H = (float)(BOARDER_D_H-BOARDER_U_H)/CNO_PER_DIM_H;
-	cudaMemcpyToSymbol(CLEN_X, &CLEN_X_H, 
-		sizeof(int), 0, cudaMemcpyHostToDevice);
-	cudaMemcpyToSymbol(CLEN_Y, &CLEN_Y_H, 
-		sizeof(int), 0, cudaMemcpyHostToDevice);
+	cudaMemcpyToSymbol(CLEN_X, &CLEN_X_H, sizeof(int));
+	getLastCudaError("readConfig");
+	cudaMemcpyToSymbol(CLEN_Y, &CLEN_Y_H, sizeof(int));
+	getLastCudaError("readConfig");
 
-	GRID_SIZE = AGENT_NO%BLOCK_SIZE==0 ? 
-		AGENT_NO/BLOCK_SIZE : AGENT_NO/BLOCK_SIZE + 1;
+	GRID_SIZE = AGENT_NO%BLOCK_SIZE==0 ? AGENT_NO/BLOCK_SIZE : AGENT_NO/BLOCK_SIZE + 1;
 
 }
 
@@ -264,14 +273,15 @@ void oneStep(BoidModel *model, BoidModel *model_h){
 
 void mainWork(){
 	cudaDeviceSetCacheConfig(cudaFuncCachePreferShared);
+	getLastCudaError("setting cache preference");
 	readConfig();
-	int gSize = GRID_SIZE;
+	int gSize = GRID_SIZE; 
 
 	BoidModel *model_h = new BoidModel();
 	model_h->allocOnDevice();
 	BoidModel *model;
 	cudaMalloc((void**)&model, sizeof(BoidModel));
-	cudaMemcpy(model, model_h, sizeof(BoidModel), cudaMemcpyHostToDevice);
+	cudaMemcpy(model, model_h, sizeof(BoidModel), cudaMemcpyHostToDevice);	
 
 	float *x_pos, *y_pos;
 	size_t floatDataSize = AGENT_NO*sizeof(float);
@@ -297,24 +307,41 @@ void mainWork(){
 	cudaMalloc((void**)&devRandDebug, STRIP*gSize*BLOCK_SIZE*sizeof(float));
 	cudaMemcpyToSymbol(randDebug, &devRandDebug, sizeof(devRandDebug),
 		0, cudaMemcpyHostToDevice);
-
+#ifdef _WIN32
 	GSimVisual::getInstance().setWorld(model_h->world);
 	for (int i=0; i<STEPS; i++){
-		if ((i & 1023) == 0) printf("STEP:%d\n", i);
+		printf("STEP:%d\n", i);
 		oneStep(model, model_h);
 		GSimVisual::getInstance().animate();
 		writeRandDebug(i, devRandDebug);
 	}
 	GSimVisual::getInstance().stop();
+#else
+	for (int i=0; i<STEPS; i++){
+	 	printf("STEP:%d\n", i);
+		oneStep(model, model_h);
+		writeRandDebug(i, devRandDebug);
+	}
+#endif
 	getLastCudaError("finished");
 	//system("PAUSE");
 }
 
 int main(int argc, char *argv[]){
+#ifndef _WIN32
+	struct timeval start, end;
+	gettimeofday(&start, NULL);
+	mainWork();
+	gettimeofday(&end, NULL);
+	printf("%ld\n", ((end.tv_sec * 1000000 + end.tv_usec)
+		  - (start.tv_sec * 1000000 + start.tv_usec)));
+	system("PAUSE");
+#else
 	int start = GetTickCount();
 	mainWork();
 	int end = GetTickCount();
 	int diff = end-start;
 	std::cout<<"Took "<<diff<<" ms"<<std::endl;
 	system("PAUSE");
+#endif
 }
