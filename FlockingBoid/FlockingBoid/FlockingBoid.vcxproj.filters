@@ -7,6 +7,9 @@
     <Filter Include="lib">
       <UniqueIdentifier>{aa222384-ca75-4c00-9637-2fbb3ccc254a}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Resource Files">
+      <UniqueIdentifier>{4dc35623-b33c-450a-aefe-d2be3b599a1a}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <CudaCompile Include="kernel.cu" />
@@ -18,11 +21,20 @@
     <None Include="gsimapp_boid.cuh">
       <Filter>Model</Filter>
     </None>
-    <None Include="header.cuh">
-      <Filter>lib</Filter>
-    </None>
     <None Include="gsimvisual.cuh">
       <Filter>lib</Filter>
+    </None>
+    <None Include="gsimapp_header.cuh">
+      <Filter>Model</Filter>
+    </None>
+    <None Include="gsimlib_header.cuh">
+      <Filter>lib</Filter>
+    </None>
+    <None Include="config.txt">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="pos_data.txt.10240">
+      <Filter>Resource Files</Filter>
     </None>
   </ItemGroup>
 </Project>
