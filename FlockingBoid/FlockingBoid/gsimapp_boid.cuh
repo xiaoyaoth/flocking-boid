@@ -283,7 +283,7 @@ __device__ float2d_t PreyBoid::consistency(const Continuous2D *world){
 	float sqrDist, ds;
 	float2d_t m;
 	dataUnion otherData;
-	world->nextNeighborInit2(this, 150, info);
+	world->nextNeighborInit2(this->data->id, this->data->loc, 150, info);
 	dataUnion *elem = world->nextAgentDataIntoSharedMem(info);
 	while(elem != NULL){
 		otherData = *elem;
@@ -316,12 +316,8 @@ __device__ float2d_t PreyBoid::cohesion(const Continuous2D *world){
 	float x=0, y=0;
 	float ds;
 	dataUnion otherData;
-	world->nextNeighborInit2(this, 150, info);
+	world->nextNeighborInit2(this->data->id, this->data->loc, 150, info);
 	dataUnion *elem = world->nextAgentDataIntoSharedMem(info);
-	if (blockIdx.x == 32 && threadIdx.x >= 96)
-		printf("%d\n", threadIdx.x);
-	if (blockIdx.x == 32 && threadIdx.x == 124)
-		printf("done\n");
 	while(elem != NULL){
 		otherData = *elem;
 		ds = world->tds(info.myLoc, otherData.loc);
@@ -354,7 +350,7 @@ __device__ float2d_t PreyBoid::avoidance(const Continuous2D *world){
 	float x=0, y=0, dx=0, dy=0;
 	float sqrDist, ds;
 	dataUnion otherData;
-	world->nextNeighborInit2(this, 150, info);
+	world->nextNeighborInit2(this->data->id, this->data->loc, 150, info);
 	dataUnion *elem = world->nextAgentDataIntoSharedMem(info);
 	while(elem != NULL){
 		otherData = *elem;
@@ -443,7 +439,8 @@ __device__ void PreyBoid::step1(GModel *model){
 	int ptrInSmem = 0;
 
 
-	dataUnion *elem = world->nextNeighborInit2(this, 150, info);
+	world->nextNeighborInit2(this->data->id, this->data->loc, 150, info);
+	dataUnion *elem = NULL;
 	while(elem != NULL){
 		PreyBoidData_t otherData;
 		otherData.dead = elem->dead;

@@ -125,7 +125,7 @@ public:
 	__device__ float tdy(float ay, float by) const;
 	__device__ float tds(float2d_t aloc, float2d_t bloc) const;
 	//Neighbors related
-	__device__ dataUnion* nextNeighborInit2(const GAgent* ag, const float range, iterInfo &info) const;
+	__device__ dataUnion* nextNeighborInit2(int agId, float2d_t loc, float range, iterInfo &info) const;
 	__device__ void resetNeighborInit(iterInfo &info) const;
 	__device__ void calcPtrAndBoarder(iterInfo &info) const;
 	__device__ void putAgentDataIntoSharedMem(const iterInfo &info, dataUnion *elem, int tid, int lane) const;
@@ -279,11 +279,11 @@ __device__ float Continuous2D::tds(const float2d_t loc1, const float2d_t loc2) c
 	float x = dxsq+dysq;
 	return sqrt(x);
 }
-__device__ dataUnion* Continuous2D::nextNeighborInit2(const GAgent* ag, const float range, iterInfo &info) const {
+__device__ dataUnion* Continuous2D::nextNeighborInit2(int agId, float2d_t agLoc, float range, iterInfo &info) const {
 	const unsigned int tid	= threadIdx.x;
 	const unsigned int idx	= threadIdx.x + blockIdx.x * blockDim.x;
-	float2d_t &myLoc = info.myLoc = ag->getLoc();
-	int agId = ag->getId();
+
+	info.myLoc = agLoc;
 	info.ptr = -1;
 	info.boarder = -1;
 	info.count = 0;
@@ -291,14 +291,19 @@ __device__ dataUnion* Continuous2D::nextNeighborInit2(const GAgent* ag, const fl
 	info.ptrInSmem = 0;
 	info.id = agId;
 
-	info.cellUL.x = (myLoc.x-range)>BOARDER_L_D ? 
-		(int)((myLoc.x-range)/CLEN_X) : (int)BOARDER_L_D/CLEN_X;
-	info.cellDR.x = (myLoc.x+range)<BOARDER_R_D ? 
-		(int)((myLoc.x+range)/CLEN_X) : (int)BOARDER_R_D/CLEN_X - 1;
-	info.cellUL.y = (myLoc.y-range)>BOARDER_U_D ? 
-		(int)((myLoc.y-range)/CLEN_Y) : (int)BOARDER_U_D/CLEN_Y;
-	info.cellDR.y = (myLoc.y+range)<BOARDER_D_D ? 
-		(int)((myLoc.y+range)/CLEN_Y) : (int)BOARDER_D_D/CLEN_Y - 1;
+	if (blockIdx.x == 32 && threadIdx.x >= 96)
+		printf("%d\n", threadIdx.x);
+	if (blockIdx.x == 32 && threadIdx.x == 124)
+		printf("done\n\n");
+
+	if ((agLoc.x-range)>BOARDER_L_D)	info.cellUL.x = (int)((agLoc.x-range)/CLEN_X);
+								else	info.cellUL.x = (int)BOARDER_L_D/CLEN_X;
+	if ((agLoc.x+range)<BOARDER_R_D)	info.cellDR.x = (int)((agLoc.x+range)/CLEN_X);
+								else	info.cellDR.x = (int)BOARDER_R_D/CLEN_X - 1;
+	if ((agLoc.y-range)>BOARDER_U_D)	info.cellUL.y = (int)((agLoc.y-range)/CLEN_Y);
+								else	info.cellUL.y = (int)BOARDER_U_D/CLEN_Y;
+	if ((agLoc.y+range)<BOARDER_D_D)	info.cellDR.y = (int)((agLoc.y+range)/CLEN_Y);
+								else	info.cellDR.y = (int)BOARDER_D_D/CLEN_Y - 1;
 
 	int *cellulx = (int*)smem;
 	int *celluly = (int*)&(cellulx[blockDim.x]);
@@ -309,7 +314,7 @@ __device__ dataUnion* Continuous2D::nextNeighborInit2(const GAgent* ag, const fl
 	celluly[tid]=info.cellUL.y;
 	celldrx[tid]=info.cellDR.x;
 	celldry[tid]=info.cellDR.y;
-	//__syncthreads();
+
 	const unsigned int lane = tid&31;
 
 	for (int i=0; i<32; i++){
@@ -324,9 +329,10 @@ __device__ dataUnion* Continuous2D::nextNeighborInit2(const GAgent* ag, const fl
 
 	info.cellCur.x = info.cellUL.x;
 	info.cellCur.y = info.cellUL.y;
+
 #ifdef BOID_DEBUG
 	if (info.cellCur.x < 0 || info.cellCur.y < 0) {
-		printf("xiamian[agId :%d, loc.x: %f, loc.y: %f][xiamian: x: %d, y: %d]\n", agId, myLoc.x, myLoc.y,info.cellUL.x, info.cellUL.y);
+		printf("xiamian[agId :%d, loc.x: %f, loc.y: %f][xiamian: x: %d, y: %d]\n", agId, agLoc.x, agLoc.y,info.cellUL.x, info.cellUL.y);
 	}
 #endif
 
