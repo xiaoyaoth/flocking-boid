@@ -30,6 +30,8 @@ typedef struct dataUnionStruct {
 	int id;
 	float2d_t loc;
 	__device__ void addValue(GAgentData_t *data){
+		id = data->id;
+		loc = data->loc;
 		BaseBoidData_t *boidData = (BaseBoidData_t*)data;
 		BoidType bt = boidData->btype;
 		if (bt == 2){
@@ -37,9 +39,7 @@ typedef struct dataUnionStruct {
 			bstate = pd->bstate;
 			btype = pd->btype;
 			dead = pd->dead;
-			id = pd->id;
 			lastd = pd->lastd;
-			loc = pd->loc;
 		} else if(bt == FOOD_BOID)
 			;
 	}

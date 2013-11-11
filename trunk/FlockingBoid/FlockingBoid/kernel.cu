@@ -238,7 +238,8 @@ void writeRandDebug(int i, float* devRandDebug){
 				randDebugOut.flush();		
 			}		
 			randDebugOut.close();		
-			free(hostRandDebug);		
+			free(hostRandDebug);
+			system("PAUSE");
 			exit(1);		
 		}	
 	}
