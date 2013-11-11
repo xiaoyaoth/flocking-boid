@@ -113,10 +113,6 @@ public:
 	__device__ float2d_t consistency(const Continuous2D *world);
 	__device__ float2d_t cohesion(const Continuous2D *world);
 	__device__ float2d_t avoidance(const Continuous2D *world);
-	//__device__ float2d_t flee(Continuous2D *world);
-	//__device__ float2d_t searchFood(Continuous2D *world);
-	//__device__ float2d_t conformSpeed(Continuous2D *world);
-	//__device__ float2d_t searchMate(Continuous2D *world);
 	__device__ void step(GModel *state);
 	__device__ void step1(GModel *state);
 	__device__ void putDataInSmem(dataUnion &dataElem);
@@ -322,6 +318,10 @@ __device__ float2d_t PreyBoid::cohesion(const Continuous2D *world){
 	dataUnion otherData;
 	world->nextNeighborInit2(this, 150, info);
 	dataUnion *elem = world->nextAgentDataIntoSharedMem(info);
+	if (blockIdx.x == 32 && threadIdx.x >= 96)
+		printf("%d\n", threadIdx.x);
+	if (blockIdx.x == 32 && threadIdx.x == 124)
+		printf("done\n");
 	while(elem != NULL){
 		otherData = *elem;
 		ds = world->tds(info.myLoc, otherData.loc);
@@ -386,7 +386,8 @@ __device__ float2d_t PreyBoid::avoidance(const Continuous2D *world){
 	return res;
 }
 
-__device__ void PreyBoid::step(GModel *model){	
+__device__ void PreyBoid::step(GModel *model){
+	__syncthreads(); //这个barrier可以放到刚进step，但是不能放到getLoc()之后， 不然sync会出错
 	const BoidModel *boidModel = (BoidModel*) model;
 	const Continuous2D *world = boidModel->getWorld();
 	float2d_t avoid = this->avoidance(world);
@@ -458,7 +459,6 @@ __device__ void PreyBoid::step1(GModel *model){
 				y += dy/(sqrDist*sqrDist + 1);
 			}
 		}
-		__syncthreads();
 		elem = world->nextAgentDataIntoSharedMem(info);
 	}
 }
