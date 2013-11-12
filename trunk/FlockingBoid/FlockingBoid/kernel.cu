@@ -24,7 +24,7 @@ void initOnDevice(float *x_pos, float *y_pos){
 	x_pos_h = (float*)malloc(AGENT_NO*sizeof(float));
 	y_pos_h = (float*)malloc(AGENT_NO*sizeof(float));
 
-	std::ifstream fin("pos_data.txt");
+	std::ifstream fin(dataFileName);
 	std::string rec;
 
 	char *cstr, *p;
@@ -55,7 +55,6 @@ __global__ void addAgentsOnDevice(BoidModel *gm, float *x_pos, float *y_pos){
 	}
 	if (idx == 0)
 		gm->getScheduler()->setAssignments(gm->getWorld()->getNeighborIdx());
-	printf("%d ", idx);
 }
 
 void test1(){
@@ -158,6 +157,11 @@ void readConfig(){
 		if(strcmp(p, "BLOCK_SIZE")==0){
 			p=strtok(NULL, "=");
 			BLOCK_SIZE = atoi(p);
+		}
+		if(strcmp(p, "DATA_FILENAME")==0){
+			dataFileName = new char[20];
+			p=strtok(NULL, "=");
+			strcpy(dataFileName, p);
 		}
 	}
 	free(cstr);

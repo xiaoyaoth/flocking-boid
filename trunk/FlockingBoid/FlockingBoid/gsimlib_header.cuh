@@ -34,6 +34,7 @@ int SELECTION;		//read from config
 bool VISUALIZE;		//read from config
 int VERBOSE;		//read from config
 int FILE_GEN;		//read from config
+char* dataFileName; //read from config
 
 int BLOCK_SIZE;		//read from config
 int GRID_SIZE;		//calc with BLOCK_SIZE and AGENT_NO
