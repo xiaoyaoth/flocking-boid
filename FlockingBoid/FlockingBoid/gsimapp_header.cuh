@@ -11,12 +11,22 @@ typedef struct BaseBoidData : public GAgentData_t{
 	bool dead;
 	BoidType btype;
 	BoidState bstate;
+	float DEFAULT_SPEED;
 	__device__ float2d_t momentum(){
 		return this->lastd;
 	}
 } BaseBoidData_t;
 
 typedef struct PreyBoidData : public BaseBoidData_t {
+	float fleeBonus;
+	int hungerCount;
+	int starveCount;
+	int mateCount;
+	bool horny;
+
+	float SENSE_FOOD_RANGE;
+	int HUNGER_LIMIT;
+	int STARVE_LIMIT;
 } PreyBoidData_t;
 
 typedef struct FoodBoidData : public BaseBoidData_t{
