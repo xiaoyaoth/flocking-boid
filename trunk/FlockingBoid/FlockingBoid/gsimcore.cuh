@@ -241,20 +241,27 @@ __device__ GAgent* Continuous2D::obtainAgentByInfoPtr(int ptr) const {
 	return ag;
 }
 __device__ float Continuous2D::stx(const float x) const{
-	if (x >= 0){
-		if (x < this->width)
-			return x;
-		return x - this->width;
-	}
-	return x + this->width;
+	float res = x;
+	if (x >= 0) {
+		if (x >= this->width)
+			res = x - this->width;
+	} else
+		res = x + this->width;
+	if (res == this->width)
+		res = 0;
+	return res;
 }
 __device__ float Continuous2D::sty(const float y) const {
+	float res = y;
 	if (y >= 0) {
-		if (y < this->height)
-			return y;
-		return y - height;
-	}
-	return y + height;
+		if (y >= this->height)
+			res = y - this->height;
+	} else
+		res = y + this->height;
+	if (res == this->height)
+		res = 0;
+	return res;
+
 }
 __device__ float Continuous2D::tdx(float ax, float bx) const {
 	float dx = abs(ax-bx);
@@ -290,11 +297,6 @@ __device__ dataUnion* Continuous2D::nextNeighborInit2(int agId, float2d_t agLoc,
 	info.range = range;
 	info.ptrInSmem = 0;
 	info.id = agId;
-
-	if (blockIdx.x == 32 && threadIdx.x >= 96)
-		printf("%d\n", threadIdx.x);
-	if (blockIdx.x == 32 && threadIdx.x == 124)
-		printf("done\n\n");
 
 	if ((agLoc.x-range)>BOARDER_L_D)	info.cellUL.x = (int)((agLoc.x-range)/CLEN_X);
 								else	info.cellUL.x = (int)BOARDER_L_D/CLEN_X;

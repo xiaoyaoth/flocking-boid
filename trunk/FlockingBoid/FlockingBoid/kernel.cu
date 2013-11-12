@@ -24,7 +24,7 @@ void initOnDevice(float *x_pos, float *y_pos){
 	x_pos_h = (float*)malloc(AGENT_NO*sizeof(float));
 	y_pos_h = (float*)malloc(AGENT_NO*sizeof(float));
 
-	std::ifstream fin("pos_data.txt.10240");
+	std::ifstream fin("pos_data.txt");
 	std::string rec;
 
 	char *cstr, *p;
@@ -53,9 +53,9 @@ __global__ void addAgentsOnDevice(BoidModel *gm, float *x_pos, float *y_pos){
 		gm->addToScheduler(ag, idx);
 		gm->addToWorld(ag, idx);
 	}
-	gm->getScheduler()->setAssignments(
-		gm->getWorld()->getNeighborIdx()
-		);
+	if (idx == 0)
+		gm->getScheduler()->setAssignments(gm->getWorld()->getNeighborIdx());
+	printf("%d ", idx);
 }
 
 void test1(){
@@ -210,10 +210,6 @@ void readRandDebug(float *devRandDebug, std::string str1, std::string str2){
 }
 
 void writeRandDebug(int i, float* devRandDebug){
-	//float *hostRandDebug2 = (float*)malloc(sizeof(float));
-	//cudaMemcpy(hostRandDebug2, devRandDebug, sizeof(float), cudaMemcpyDeviceToHost);
-	//if (hostRandDebug2[0] != 0)
-	//	std::cout<<"hostRandDebug2 "<<hostRandDebug2[0]<<std::endl;
 	if (FILE_GEN == 1){
 		int gSize = GRID_SIZE;
 		if (i == SELECTION) {		
@@ -229,8 +225,8 @@ void writeRandDebug(int i, float* devRandDebug){
 				randDebugOut
 					<<std::setw(4)
 					<<i<< "\t"
-					//<<hostRandDebug[STRIP*i]<<"\t"
-					//<<hostRandDebug[STRIP*i+1]<<"\t"
+					<<hostRandDebug[STRIP*i]<<"\t"
+					<<hostRandDebug[STRIP*i+1]<<"\t"
 					<<hostRandDebug[STRIP*i+2]<<"\t"
 					<<hostRandDebug[STRIP*i+3]<<"\t"
 					<<hostRandDebug[STRIP*i+4]<<"\t"
@@ -296,7 +292,7 @@ void mainWork(){
 	printf("size taken by one dataUnion: %d\n", sizeof(dataUnion));
 	size_t pVal;
 	cudaDeviceGetLimit(&pVal, cudaLimitMallocHeapSize);
-	printf("cudaLimitMallocHeapSize: %d", pVal);
+	printf("cudaLimitMallocHeapSize: %d\n", pVal);
 
 	addAgentsOnDevice<<<gSize, BLOCK_SIZE>>>(model, x_pos, y_pos);
 	//schUtil::scheduleRepeatingAllAgents<<<1, BLOCK_SIZE>>>(model);

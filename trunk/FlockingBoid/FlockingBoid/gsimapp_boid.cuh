@@ -110,9 +110,9 @@ public:
 	__device__ bool readyToMate();
 	__device__ void setRandomSpeed();
 	__device__ float2d_t randomness(GRandomGen *gen);
-	__device__ float2d_t consistency(const Continuous2D *world);
-	__device__ float2d_t cohesion(const Continuous2D *world);
-	__device__ float2d_t avoidance(const Continuous2D *world);
+	__device__ float2d_t consistency(const Continuous2D *world, iterInfo &info);
+	__device__ float2d_t cohesion(const Continuous2D *world, iterInfo &info);
+	__device__ float2d_t avoidance(const Continuous2D *world, iterInfo &info);
 	__device__ void step(GModel *state);
 	__device__ void step1(GModel *state);
 	__device__ void putDataInSmem(dataUnion &dataElem);
@@ -277,13 +277,13 @@ __device__ float2d_t PreyBoid::randomness(GRandomGen *gen){
 	res.y = 0.05*y/l;
 	return res;
 }
-__device__ float2d_t PreyBoid::consistency(const Continuous2D *world){
-	iterInfo info; 
+__device__ float2d_t PreyBoid::consistency(const Continuous2D *world, iterInfo &info){
 	float x=0, y=0, dx=0, dy=0;
 	float sqrDist, ds;
 	float2d_t m;
 	dataUnion otherData;
-	world->nextNeighborInit2(this->data->id, this->data->loc, 150, info);
+	world->resetNeighborInit(info);
+	//world->nextNeighborInit2(this->data->id, this->data->loc, 150, info);
 	dataUnion *elem = world->nextAgentDataIntoSharedMem(info);
 	while(elem != NULL){
 		otherData = *elem;
@@ -311,12 +311,12 @@ __device__ float2d_t PreyBoid::consistency(const Continuous2D *world){
 	return res;
 }
 
-__device__ float2d_t PreyBoid::cohesion(const Continuous2D *world){
-	iterInfo info; 
+__device__ float2d_t PreyBoid::cohesion(const Continuous2D *world, iterInfo &info){
 	float x=0, y=0;
 	float ds;
 	dataUnion otherData;
-	world->nextNeighborInit2(this->data->id, this->data->loc, 150, info);
+	world->resetNeighborInit(info);
+	//world->nextNeighborInit2(this->data->id, this->data->loc, 150, info);
 	dataUnion *elem = world->nextAgentDataIntoSharedMem(info);
 	while(elem != NULL){
 		otherData = *elem;
@@ -345,8 +345,7 @@ __device__ float2d_t PreyBoid::cohesion(const Continuous2D *world){
 	return res;
 }
 
-__device__ float2d_t PreyBoid::avoidance(const Continuous2D *world){
-	iterInfo info;
+__device__ float2d_t PreyBoid::avoidance(const Continuous2D *world, iterInfo &info){
 	float x=0, y=0, dx=0, dy=0;
 	float sqrDist, ds;
 	dataUnion otherData;
@@ -386,9 +385,10 @@ __device__ void PreyBoid::step(GModel *model){
 	__syncthreads(); //这个barrier可以放到刚进step，但是不能放到getLoc()之后， 不然sync会出错
 	const BoidModel *boidModel = (BoidModel*) model;
 	const Continuous2D *world = boidModel->getWorld();
-	float2d_t avoid = this->avoidance(world);
-	float2d_t cohes = this->cohesion(world);
-	float2d_t consi = this->consistency(world);
+	iterInfo info;
+	float2d_t avoid = this->avoidance(world, info);
+	float2d_t cohes = this->cohesion(world, info);
+	float2d_t consi = this->consistency(world, info);
 	//float2d_t rdnes = this->randomness(model->rgen);
 	float2d_t momen = this->momentum();
 	float dx = 
@@ -426,8 +426,8 @@ __device__ void PreyBoid::step(GModel *model){
 	dummyData->loc.x = world->stx(myData->loc.x + dx);
 	dummyData->loc.y = world->sty(myData->loc.y + dy);*/
 
-	//randDebug[STRIP*myData->id] = dummyData->loc.x;
-	//randDebug[STRIP*myData->id+1] = dummyData->loc.y;
+	randDebug[STRIP*dummyData.id] = dummyData.loc.x;
+	randDebug[STRIP*dummyData.id+1] = dummyData.loc.y;
 }
 __device__ void PreyBoid::step1(GModel *model){
 	const BoidModel *boidModel = (BoidModel*) model;
