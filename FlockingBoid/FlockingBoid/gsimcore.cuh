@@ -408,6 +408,23 @@ __device__ dataUnion *Continuous2D::nextAgentDataIntoSharedMem(iterInfo &info) c
 	dataUnion *elem = &unionArray[tid-lane+info.ptrInSmem];
 	info.ptrInSmem++;
 	info.ptr++;
+
+	while (elem->id == -1 && info.cellCur.y <= info.cellDR.y) {
+		info.ptrInSmem = 0;
+		info.cellCur.x++;
+		if(info.cellCur.x>info.cellDR.x){
+			info.cellCur.x = info.cellUL.x;
+			info.cellCur.y++;
+			if(info.cellCur.y>info.cellDR.y)
+				return NULL;
+		}
+		this->calcPtrAndBoarder(info);
+		this->putAgentDataIntoSharedMem(info, &unionArray[tid], tid, lane);
+		elem = &unionArray[tid-lane+info.ptrInSmem];
+		info.ptrInSmem++;
+		info.ptr++;
+	}
+
 	if (elem->id == -1) {
 		elem = NULL;
 	}
