@@ -14,7 +14,7 @@ public:
 
 	Dummy(){
 		cudaMalloc((void**)&data, AGENT_NO*sizeof(int));
-		getLastCudaError("Dummy cudaMalloc");
+		cudaCheckErrors("Dummy cudaMalloc");
 	}
 };
 
@@ -25,9 +25,9 @@ public:
 	DummyPack(){
 		Dummy *dummy_h = new Dummy();
 		cudaMalloc((void**)&dummy, sizeof(Dummy));
-		getLastCudaError("DummyPack cudaMalloc");
+		cudaCheckErrors("DummyPack cudaMalloc");
 		cudaMemcpy(dummy, dummy_h, sizeof(Dummy), cudaMemcpyHostToDevice);
-		getLastCudaError("DummyPack cudaMemcpy");
+		cudaCheckErrors("DummyPack cudaMemcpy");
 	}
 };
 
@@ -48,24 +48,24 @@ int test1(){
 	Dummy *dummy_d;
 	int *dummy_d_data;
 	cudaMalloc((void**)&dummy_d, sizeof(Dummy));
-	getLastCudaError("cudaMalloc dummy_d");
+	cudaCheckErrors("cudaMalloc dummy_d");
 	cudaMalloc((void**)&dummy_d_data, AGENT_NO*sizeof(int));
-	getLastCudaError("cudaMalloc dummy_d_data");
+	cudaCheckErrors("cudaMalloc dummy_d_data");
 	//cudaMemcpy(&dummy, &dummy_d, sizeof(dummy_d), cudaMemcpyHostToDevice);
-	//getLastCudaError("cudaMemcpyToSymbol dummy");
+	//cudaCheckErrors("cudaMemcpyToSymbol dummy");
 	cudaMemcpy(&dummy_d->data, &dummy_d_data, sizeof(dummy_d->data), cudaMemcpyHostToDevice);
-	getLastCudaError("cudaMemcpyToSymbol dummy_data");
+	cudaCheckErrors("cudaMemcpyToSymbol dummy_data");
 
 	foo_kernel<<<1, BLOCK_SIZE>>>(dummy_d);
-	getLastCudaError("foo_kernel");
+	cudaCheckErrors("foo_kernel");
 
 	
 	Dummy *dummy_h = new Dummy();
 	int *dummy_h_data = (int*)malloc(AGENT_NO*sizeof(int));
 	cudaMemcpy(dummy_h, dummy_d, sizeof(Dummy), cudaMemcpyDeviceToHost);
-	getLastCudaError("cudaMemcpy dummy_h");
+	cudaCheckErrors("cudaMemcpy dummy_h");
 	cudaMemcpy(dummy_h_data, dummy_h->data, AGENT_NO*sizeof(int), cudaMemcpyDeviceToHost);
-	getLastCudaError("cudaMemcpy dummy_h_data");
+	cudaCheckErrors("cudaMemcpy dummy_h_data");
 
 	for (int i=0; i<AGENT_NO; i++)
 		printf("%d ", dummy_h_data[i]);

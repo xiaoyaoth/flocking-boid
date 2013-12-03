@@ -1,4 +1,4 @@
-#include "testheader.cuh"
+#include "header.cuh"
 
 class GModel;
 class Continuous2D{
@@ -10,9 +10,9 @@ public:
 		size_t sizeCellArray = CELL_NO*sizeof(int);
 
 		cudaMalloc((void**)&neighborIdx, sizeAgArray);
-		getLastCudaError("Continuous2D():cudaMalloc:neighborIdx");
+		cudaCheckErrors("Continuous2D():cudaMalloc:neighborIdx");
 		cudaMalloc((void**)&cellIdx, sizeCellArray);
-		getLastCudaError("Continuous2D():cudaMalloc:cellIdx");
+		cudaCheckErrors("Continuous2D():cudaMalloc:cellIdx");
 
 
 		int *neighborIdx_h = (int*)malloc(sizeAgArray);
@@ -22,9 +22,9 @@ public:
 		for(int i = 0; i<CELL_NO; i++)
 			cellIdx_h[i] = 3;
 		cudaMemcpy(this->neighborIdx, neighborIdx_h, sizeAgArray, cudaMemcpyHostToDevice);
-		getLastCudaError("Continuous2D():cudaMemcpy:neighborIdx");
+		cudaCheckErrors("Continuous2D():cudaMemcpy:neighborIdx");
 		cudaMemcpy(this->cellIdx, cellIdx_h, sizeCellArray, cudaMemcpyHostToDevice);
-		getLastCudaError("Continuous2D():cudaMemcpy:cellIdx");
+		cudaCheckErrors("Continuous2D():cudaMemcpy:cellIdx");
 	}
 	void allocOnHost(){
 		size_t sizeAgArray = AGENT_NO*sizeof(int);
@@ -44,9 +44,9 @@ public:
 		Continuous2D *world_d = new Continuous2D();
 		world_d->allocOnDevice();
 		cudaMalloc((void**)&world, sizeof(Continuous2D));
-		getLastCudaError("GModel():cudaMalloc:world");
+		cudaCheckErrors("GModel():cudaMalloc:world");
 		cudaMemcpy(world, world_d, sizeof(Continuous2D), cudaMemcpyHostToDevice);
-		getLastCudaError("GModel():cudaMemcpy:world");
+		cudaCheckErrors("GModel():cudaMemcpy:world");
 	}
 	void allocOnHost(){
 		world = new Continuous2D();

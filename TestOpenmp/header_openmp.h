@@ -12,7 +12,7 @@
 #define BOARDER_R	1000
 #define BOARDER_U	0
 #define BOARDER_D	1000
-#define CNO_PER_DIM		((int)(BOARDER_R-BOARDER_L)/CELL_RESO)
+#define XLENGTH		((int)(BOARDER_R-BOARDER_L)/CELL_RESO)
 #define AGENT_NO	8192
 #define CELL_NO		CELL_RESO
 #define BLOCK_SIZE	1024
@@ -23,7 +23,7 @@ typedef struct int_2d
 	int y;
 	int_2d():x(0),y(0){}
 	int cell_id(){
-		return y * CNO_PER_DIM + x;
+		return y * XLENGTH + x;
 	}
 	void print(){
 		printf("(%d, %d)", x, y);
