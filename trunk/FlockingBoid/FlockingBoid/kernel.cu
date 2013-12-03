@@ -85,14 +85,12 @@ void test1(){
 		schUtil::step<<<gSize, BLOCK_SIZE>>>(model);
 }
 
-
-void readConfig(){
+void readConfig(char *config_file){
 	std::ifstream fin;
-	fin.open("config.txt");
+	fin.open(config_file);
 	std::string rec;
 	char *cstr, *p;
 	cstr = (char *)malloc(100 * sizeof(char));
-	int CELL_RESO_TEMP;
 
 	while (!fin.eof()) {
 		std::getline(fin, rec);
@@ -130,6 +128,12 @@ void readConfig(){
 			cudaMemcpyToSymbol(BOARDER_D_D, &BOARDER_D_H, sizeof(int));
 			getLastCudaError("readConfig");
 		}
+		if(strcmp(p, "RANGE")==0){
+			p=strtok(NULL, "=");
+			RANGE_H = atof(p);
+			cudaMemcpyToSymbol(RANGE, &RANGE_H, sizeof(float));
+			getLastCudaError("readConfig");
+		}
 		if(strcmp(p, "DISCRETI")==0){
 			p=strtok(NULL, "=");
 			DISCRETI = atoi(p);
@@ -157,6 +161,10 @@ void readConfig(){
 		if(strcmp(p, "BLOCK_SIZE")==0){
 			p=strtok(NULL, "=");
 			BLOCK_SIZE = atoi(p);
+		}
+		if(strcmp(p, "HEAP_SIZE")==0){
+			p=strtok(NULL, "=");
+			HEAP_SIZE = atoi(p);
 		}
 		if(strcmp(p, "DATA_FILENAME")==0){
 			dataFileName = new char[20];
@@ -272,10 +280,10 @@ void oneStep(BoidModel *model, BoidModel *model_h){
 	getLastCudaError("end loop");
 }
 
-void mainWork(){
+void mainWork(char *config_file){
 	cudaDeviceSetCacheConfig(cudaFuncCachePreferShared);
 	getLastCudaError("setting cache preference");
-	readConfig();
+	readConfig(config_file);
 	int gSize = GRID_SIZE; 
 
 	BoidModel *model_h = new BoidModel();
@@ -295,6 +303,7 @@ void mainWork(){
 	printf("size taken by one iterInfo: %d\n", sizeof(iterInfo));
 	printf("size taken by one dataUnion: %d\n", sizeof(dataUnion));
 	size_t pVal;
+	cudaDeviceSetLimit(cudaLimitMallocHeapSize, HEAP_SIZE);
 	cudaDeviceGetLimit(&pVal, cudaLimitMallocHeapSize);
 	printf("cudaLimitMallocHeapSize: %d\n", pVal);
 
@@ -311,7 +320,7 @@ void mainWork(){
 #ifdef _WIN32
 	GSimVisual::getInstance().setWorld(model_h->world);
 	for (int i=0; i<STEPS; i++){
-		printf("STEP:%d\n", i);
+		if ((i%(STEPS/10))==0) printf("STEP:%d ", i);
 		oneStep(model, model_h);
 		GSimVisual::getInstance().animate();
 		writeRandDebug(i, devRandDebug);
@@ -319,27 +328,25 @@ void mainWork(){
 	GSimVisual::getInstance().stop();
 #else
 	for (int i=0; i<STEPS; i++){
-	 	printf("STEP:%d\n", i);
+	 	if ((i%(STEPS/10))==0) printf("STEP:%d ", i);
 		oneStep(model, model_h);
 		writeRandDebug(i, devRandDebug);
 	}
 #endif
 	getLastCudaError("finished");
-	//system("PAUSE");
 }
 
 int main(int argc, char *argv[]){
 #ifndef _WIN32
 	struct timeval start, end;
 	gettimeofday(&start, NULL);
-	mainWork();
+	mainWork(argv[1]);
 	gettimeofday(&end, NULL);
 	printf("%ld\n", ((end.tv_sec * 1000000 + end.tv_usec)
 		  - (start.tv_sec * 1000000 + start.tv_usec)));
-	system("PAUSE");
 #else
 	int start = GetTickCount();
-	mainWork();
+	mainWork(argv[1]);
 	int end = GetTickCount();
 	int diff = end-start;
 	std::cout<<"Took "<<diff<<" ms"<<std::endl;

@@ -32,13 +32,11 @@ typedef struct PreyBoidData : public BaseBoidData_t {
 typedef struct FoodBoidData : public BaseBoidData_t{
 } FoodBoidData_t;
 
-typedef struct dataUnionStruct {
+typedef struct dataUnionStruct : public GAgentData_t {
 	float2d_t lastd;
 	bool dead;
 	BoidType btype;
 	BoidState bstate;
-	int id;
-	float2d_t loc;
 	__device__ void addValue(GAgentData_t *data){
 		id = data->id;
 		loc = data->loc;
