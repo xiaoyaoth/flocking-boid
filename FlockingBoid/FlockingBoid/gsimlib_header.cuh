@@ -9,7 +9,7 @@
 #include "device_launch_parameters.h"
 #include "float.h"
 
-__constant__ int AGENT_NO_D;		//copied from host
+__constant__ int AGENT_NO_D;	//copied from host
 __constant__ int CELL_NO_D;		//copied from host
 __constant__ int BOARDER_L_D;	//copied from host
 __constant__ int BOARDER_R_D;	//copied from host
@@ -18,10 +18,12 @@ __constant__ int BOARDER_D_D;	//copied from host
 __constant__ int CNO_PER_DIM;	//(int)pow((float)2, DISCRETI)
 __constant__ float CLEN_X;		//(float)(BOARDER_R-BOARDER_L)/CNO_PER_DIM;
 __constant__ float CLEN_Y;		//(float)(BOARDER_D-BOARDER_U)/CNO_PER_DIM;
-//__constant__ int SHARED_SCALE_D;//copied from host
+__constant__ float RANGE;		//read from config
 
 int CELL_NO;		//CNO_PER_DIM * CNO_PER_DIM;
 int DISCRETI;		//read from config
+float RANGE_H;		//read from config
+size_t HEAP_SIZE;	//read from config
 
 int BOARDER_L_H;	//read from config
 int BOARDER_R_H;	//read from config
@@ -29,7 +31,6 @@ int BOARDER_U_H;	//read from config
 int BOARDER_D_H;	//read from config
 int AGENT_NO;		//read from config
 int STEPS;			//read from config
-//int SHARED_SCALE_H;	//read from config
 int SELECTION;		//read from config
 bool VISUALIZE;		//read from config
 int VERBOSE;		//read from config

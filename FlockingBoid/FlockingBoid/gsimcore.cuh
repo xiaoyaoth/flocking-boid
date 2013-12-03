@@ -129,8 +129,8 @@ public:
 	__device__ void resetNeighborInit(iterInfo &info) const;
 	__device__ void calcPtrAndBoarder(iterInfo &info) const;
 	__device__ void putAgentDataIntoSharedMem(const iterInfo &info, dataUnion *elem, int tid, int lane) const;
-	__device__ dataUnion getAgentDataIntoSharedMem(iterInfo &info) const;
 	__device__ dataUnion *nextAgentDataIntoSharedMem(iterInfo &info) const;
+	__device__ GAgentData_t *nextAgentData(iterInfo &info) const;
 	//__global__ functions
 	friend __global__ void c2dUtil::gen_hash_kernel(int *hash, Continuous2D *c2d);
 	friend __global__ void c2dUtil::gen_cellIdx_kernel(int *hash, Continuous2D *c2d);
@@ -375,12 +375,6 @@ __device__ void Continuous2D::putAgentDataIntoSharedMem(const iterInfo &info, da
 	}
 #endif
 }
-__device__ dataUnion Continuous2D::getAgentDataIntoSharedMem(iterInfo &info) const {
-	dataUnion *unionArray = (dataUnion*)&smem[4*blockDim.x];
-	const int tid = threadIdx.x;
-	const int lane = tid & 31;
-	return unionArray[tid-lane+info.ptrInSmem];
-}
 __device__ dataUnion *Continuous2D::nextAgentDataIntoSharedMem(iterInfo &info) const {
 	dataUnion *unionArray = (dataUnion*)&smem[4*blockDim.x];
 	const int tid = threadIdx.x;
@@ -429,6 +423,37 @@ __device__ dataUnion *Continuous2D::nextAgentDataIntoSharedMem(iterInfo &info) c
 		elem = NULL;
 	}
 	return elem;
+}
+__device__ GAgentData_t *Continuous2D::nextAgentData(iterInfo &info) const {
+	const int tid = threadIdx.x;
+	const int lane = tid & 31;
+
+	if (info.ptr>info.boarder) {
+		info.ptrInSmem = 0;
+		info.cellCur.x++;
+		if(info.cellCur.x>info.cellDR.x){
+			info.cellCur.x = info.cellUL.x;
+			info.cellCur.y++;
+			if(info.cellCur.y>info.cellDR.y)
+				return NULL;
+		}
+		this->calcPtrAndBoarder(info);
+	}
+
+	while (info.ptr == -1) {
+		info.cellCur.x++;
+		if(info.cellCur.x>info.cellDR.x){
+			info.cellCur.x = info.cellUL.x;
+			info.cellCur.y++;
+			if(info.cellCur.y>info.cellDR.y)
+				return NULL;
+		}
+		this->calcPtrAndBoarder(info);
+	}
+
+	GAgent *ag = this->obtainAgentByInfoPtr(info.ptr);
+	info.ptr++;
+	return ag->getData();
 }
 //GAgent
 __device__ int GAgent::initId() {

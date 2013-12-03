@@ -28,7 +28,7 @@ public:
 		consistency = 1.0;
 		momentum = 1.0;
 		deadFlockerProbability = 0.1;
-		neighborhood = 150;
+		neighborhood = RANGE;
 		jump = 0.7;
 	}
 	void allocOnDevice();
@@ -265,7 +265,6 @@ __device__ void PreyBoid::setRandomSpeed(){
 	PreyBoidData_t *myData = (PreyBoidData_t*)this->data;
 	myData->DEFAULT_SPEED = CONSTANT::PREY_STD_SPEED + 
 		this->model->rgen->nextGaussian() * 0.2;
-
 }
 
 __device__ float2d_t PreyBoid::randomness(GRandomGen *gen){
@@ -278,18 +277,25 @@ __device__ float2d_t PreyBoid::randomness(GRandomGen *gen){
 	res.y = 0.05*y/l;
 	return res;
 }
+
+#define TRIAL_NEXT_AGENT_DATA 0
 __device__ float2d_t PreyBoid::consistency(const Continuous2D *world, iterInfo &info){
 	float x=0, y=0, dx=0, dy=0;
 	float sqrDist, ds;
 	float2d_t m;
-	dataUnion otherData;
 	world->resetNeighborInit(info);
-	//world->nextNeighborInit2(this->data->id, this->data->loc, 150, info);
+	//world->nextNeighborInit2(this->data->id, this->data->loc, RANGE, info);
+#if TRIAL_NEXT_AGENT_DATA == 0
+	dataUnion otherData;
 	dataUnion *elem = world->nextAgentDataIntoSharedMem(info);
+#else
+	PreyBoidData_t otherData;
+	PreyBoidData_t *elem = (PreyBoidData_t*)world->nextAgentData(info);
+#endif
 	while(elem != NULL){
 		otherData = *elem;
 		ds = world->tds(info.myLoc, otherData.loc);
-		if (ds < 150) {
+		if (ds < RANGE) {
 			if (!otherData.dead){
 				info.count++;
 				m = otherData.lastd;
@@ -297,7 +303,11 @@ __device__ float2d_t PreyBoid::consistency(const Continuous2D *world, iterInfo &
 				y += m.y;
 			}
 		}
+#if TRIAL_NEXT_AGENT_DATA == 0
 		elem = world->nextAgentDataIntoSharedMem(info);
+#else
+		elem = (PreyBoidData_t*)world->nextAgentData(info);
+#endif
 	}
 
 	if (info.count > 0){
@@ -311,25 +321,33 @@ __device__ float2d_t PreyBoid::consistency(const Continuous2D *world, iterInfo &
 	res.y = y;
 	return res;
 }
-
 __device__ float2d_t PreyBoid::cohesion(const Continuous2D *world, iterInfo &info){
 	float x=0, y=0;
 	float ds;
-	dataUnion otherData;
 	world->resetNeighborInit(info);
-	//world->nextNeighborInit2(this->data->id, this->data->loc, 150, info);
+	//world->nextNeighborInit2(this->data->id, this->data->loc, RANGE, info);
+#if TRIAL_NEXT_AGENT_DATA == 0
+	dataUnion otherData;
 	dataUnion *elem = world->nextAgentDataIntoSharedMem(info);
+#else
+	PreyBoidData_t otherData;
+	PreyBoidData_t *elem = (PreyBoidData_t*)world->nextAgentData(info);
+#endif
 	while(elem != NULL){
 		otherData = *elem;
 		ds = world->tds(info.myLoc, otherData.loc);
-		if (ds < 150) {
+		if (ds < RANGE) {
 			if (!otherData.dead){
 				info.count++;
 				x += world->tdx(info.myLoc.x, otherData.loc.x);
 				y += world->tdy(info.myLoc.y, otherData.loc.y);
 			}
 		}
+#if TRIAL_NEXT_AGENT_DATA == 0
 		elem = world->nextAgentDataIntoSharedMem(info);
+#else
+		elem = (PreyBoidData_t*)world->nextAgentData(info);
+#endif
 	}
 
 	if (info.count > 0){
@@ -345,17 +363,21 @@ __device__ float2d_t PreyBoid::cohesion(const Continuous2D *world, iterInfo &inf
 	res.y = -y/10;
 	return res;
 }
-
 __device__ float2d_t PreyBoid::avoidance(const Continuous2D *world, iterInfo &info){
 	float x=0, y=0, dx=0, dy=0;
 	float sqrDist, ds;
+	world->nextNeighborInit2(this->data->id, this->data->loc, RANGE, info);
+#if TRIAL_NEXT_AGENT_DATA == 0
 	dataUnion otherData;
-	world->nextNeighborInit2(this->data->id, this->data->loc, 150, info);
 	dataUnion *elem = world->nextAgentDataIntoSharedMem(info);
+#else
+	PreyBoidData_t otherData;
+	PreyBoidData_t *elem = (PreyBoidData_t*)world->nextAgentData(info);
+#endif
 	while(elem != NULL){
 		otherData = *elem;
 		ds = world->tds(info.myLoc, otherData.loc);
-		if (ds < 150) {
+		if (ds < RANGE) {
 			if (!otherData.dead){
 				info.count++;
 				dx = world->tdx(info.myLoc.x, otherData.loc.x);
@@ -365,7 +387,11 @@ __device__ float2d_t PreyBoid::avoidance(const Continuous2D *world, iterInfo &in
 				y += dy/(sqrDist*sqrDist + 1);
 			}
 		}
+#if TRIAL_NEXT_AGENT_DATA == 0
 		elem = world->nextAgentDataIntoSharedMem(info);
+#else
+		elem = (PreyBoidData_t*)world->nextAgentData(info);
+#endif
 	}
 
 	if (info.count > 0){
@@ -418,13 +444,6 @@ __device__ void PreyBoid::step(GModel *model){
 	dummyDataPtr->loc.x = world->stx(myLoc.x + dx);
 	dummyDataPtr->loc.y = world->sty(myLoc.y + dy);
 
-	/*BaseBoid *dummy = (BaseBoid*)this->dummy;
-	PreyBoidData_t *dummyData = (PreyBoidData_t*)dummy->getData();
-	dummyData->lastd.x = dx;
-	dummyData->lastd.y = dy;
-	dummyData->loc.x = world->stx(myData->loc.x + dx);
-	dummyData->loc.y = world->sty(myData->loc.y + dy);*/
-
 	randDebug[STRIP*this->data->id] = dummyDataPtr->loc.x;
 	randDebug[STRIP*this->data->id+1] = dummyDataPtr->loc.y;
 }
@@ -438,14 +457,14 @@ __device__ void PreyBoid::step1(GModel *model){
 	int ptrInSmem = 0;
 
 
-	world->nextNeighborInit2(this->data->id, this->data->loc, 150, info);
+	world->nextNeighborInit2(this->data->id, this->data->loc, RANGE, info);
 	dataUnion *elem = NULL;
 	while(elem != NULL){
 		PreyBoidData_t otherData;
 		otherData.dead = elem->dead;
 		otherData.loc = elem->loc;
 		ds = world->tds(info.myLoc, otherData.loc);
-		if (ds < 150) {
+		if (ds < RANGE) {
 			if (!otherData.dead){
 				info.count++;
 				dx = world->tdx(info.myLoc.x, otherData.loc.x);
@@ -458,7 +477,6 @@ __device__ void PreyBoid::step1(GModel *model){
 		elem = world->nextAgentDataIntoSharedMem(info);
 	}
 }
-
 __device__ void PreyBoid::putDataInSmem(dataUnion &dataElem){
 	PreyBoidData_t *myData = (PreyBoidData_t*)this->data;
 	dataElem.bstate = myData->bstate;
