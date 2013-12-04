@@ -281,7 +281,7 @@ __device__ float2d_t PreyBoid::consistency(const Continuous2D *world){
 	int agIdx = -1;
 
 	iterInfo info;
-	NextNeighborControl nnc = world->nextNeighborInit(this, this->model->neighborhood, info);
+	NextNeighborControl nnc = world->nextNeighborInit(this, RANGE, info);
 	while (nnc != STOP){
 		PreyBoid *other = (PreyBoid*)world->obtainAgentFromNeighborIdx(info.ptr);
 		if(!other->dead){
@@ -305,7 +305,7 @@ __device__ float2d_t PreyBoid::cohesion(const Continuous2D *world){
 	int agIdx = -1;
 
 	iterInfo info;
-	NextNeighborControl nnc = world->nextNeighborInit(this, this->model->neighborhood, info);
+	NextNeighborControl nnc = world->nextNeighborInit(this, RANGE, info);
 	while (nnc != STOP){
 		PreyBoid *other = (PreyBoid*)world->obtainAgentFromNeighborIdx(info.ptr);
 		if (!other->dead){
@@ -327,7 +327,7 @@ __device__ float2d_t PreyBoid::avoidance(const Continuous2D *world){
 	int count = 0;
 	int agIdx = -1;
 	iterInfo info;
-	NextNeighborControl nnc = world->nextNeighborInit(this, this->model->neighborhood, info);
+	NextNeighborControl nnc = world->nextNeighborInit(this, RANGE, info);
 	while(nnc != STOP){
 		PreyBoid *other = (PreyBoid*)world->obtainAgentFromNeighborIdx(info.ptr);
 		if (!other->dead){

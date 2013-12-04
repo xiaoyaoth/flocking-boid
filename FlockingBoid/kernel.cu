@@ -90,13 +90,12 @@ void test1(){
 		schUtil::step<<<gSize, BLOCK_SIZE>>>(model);
 }
 
-void readConfig(){
+void readConfig(char *config_file){
 	std::ifstream fin;
-	fin.open("config.txt");
+	fin.open(config_file);
 	std::string rec;
 	char *cstr, *p;
 	cstr = (char *)malloc(100 * sizeof(char));
-	int CELL_RESO_TEMP;
 
 	while (!fin.eof()) {
 		std::getline(fin, rec);
@@ -108,6 +107,41 @@ void readConfig(){
 			p=strtok(NULL, "=");
 			AGENT_NO = atoi(p);
 			cudaMemcpyToSymbol(AGENT_NO_D, &AGENT_NO, sizeof(int), 0, cudaMemcpyHostToDevice);
+			cudaCheckErrors("readConfig");
+		}
+		if(strcmp(p, "BOARDER_L")==0){
+			p=strtok(NULL, "=");
+			BOARDER_L_H = atoi(p);
+			cudaMemcpyToSymbol(BOARDER_L_D, &BOARDER_L_H, sizeof(int));
+			cudaCheckErrors("readConfig");
+		}
+		if(strcmp(p, "BOARDER_R")==0){
+			p=strtok(NULL, "=");
+			BOARDER_R_H = atoi(p);
+			cudaMemcpyToSymbol(BOARDER_R_D, &BOARDER_R_H, sizeof(int));
+			cudaCheckErrors("readConfig");
+		}
+		if(strcmp(p, "BOARDER_U")==0){
+			p=strtok(NULL, "=");
+			BOARDER_U_H = atoi(p);
+			cudaMemcpyToSymbol(BOARDER_U_D, &BOARDER_U_H, sizeof(int));
+			cudaCheckErrors("readConfig");
+		}
+		if(strcmp(p, "BOARDER_D")==0){
+			p=strtok(NULL, "=");
+			BOARDER_D_H = atoi(p);
+			cudaMemcpyToSymbol(BOARDER_D_D, &BOARDER_D_H, sizeof(int));
+			cudaCheckErrors("readConfig");
+		}
+		if(strcmp(p, "RANGE")==0){
+			p=strtok(NULL, "=");
+			RANGE_H = atof(p);
+			cudaMemcpyToSymbol(RANGE, &RANGE_H, sizeof(float));
+			cudaCheckErrors("readConfig");
+		}
+		if(strcmp(p, "DISCRETI")==0){
+			p=strtok(NULL, "=");
+			DISCRETI = atoi(p);
 		}
 		if(strcmp(p, "STEPS")==0){
 			p=strtok(NULL, "=");
@@ -116,31 +150,6 @@ void readConfig(){
 		if(strcmp(p, "VERBOSE")==0){
 			p=strtok(NULL, "=");
 			VERBOSE = atoi(p);
-		}
-		if(strcmp(p, "CELL_RESO")==0){
-			p=strtok(NULL, "=");
-			CELL_RESO_TEMP = atoi(p);
-			cudaMemcpyToSymbol(CELL_RESO, &CELL_RESO_TEMP, sizeof(int), 0, cudaMemcpyHostToDevice);
-		}
-		if(strcmp(p, "BOARDER_L")==0){
-			p=strtok(NULL, "=");
-			BOARDER_L_H = atoi(p);
-			cudaMemcpyToSymbol(BOARDER_L_D, &BOARDER_L_H, sizeof(int), 0, cudaMemcpyHostToDevice);
-		}
-		if(strcmp(p, "BOARDER_R")==0){
-			p=strtok(NULL, "=");
-			BOARDER_R_H = atoi(p);
-			cudaMemcpyToSymbol(BOARDER_R_D, &BOARDER_R_H, sizeof(int), 0, cudaMemcpyHostToDevice);
-		}
-		if(strcmp(p, "BOARDER_U")==0){
-			p=strtok(NULL, "=");
-			BOARDER_U_H = atoi(p);
-			cudaMemcpyToSymbol(BOARDER_U_D, &BOARDER_U_H, sizeof(int), 0, cudaMemcpyHostToDevice);
-		}
-		if(strcmp(p, "BOARDER_D")==0){
-			p=strtok(NULL, "=");
-			BOARDER_D_H = atoi(p);
-			cudaMemcpyToSymbol(BOARDER_D_D, &BOARDER_D_H, sizeof(int), 0, cudaMemcpyHostToDevice);
 		}
 		if(strcmp(p, "SELECTION")==0){
 			p=strtok(NULL, "=");
@@ -158,17 +167,35 @@ void readConfig(){
 			p=strtok(NULL, "=");
 			BLOCK_SIZE = atoi(p);
 		}
+		if(strcmp(p, "HEAP_SIZE")==0){
+			p=strtok(NULL, "=");
+			HEAP_SIZE = atoi(p);
+		}
+		if(strcmp(p, "DATA_FILENAME")==0){
+			dataFileName = new char[20];
+			p=strtok(NULL, "=");
+			strcpy(dataFileName, p);
+		}
 	}
-	cudaCheckErrors("readConfig");
 	free(cstr);
 	fin.close();
 
-	int XLENGTH_TEMP = ((int)(BOARDER_R_H-BOARDER_L_H)/CELL_RESO_TEMP);
-	cudaMemcpyToSymbol(XLENGTH, &XLENGTH_TEMP, sizeof(int), 0, cudaMemcpyHostToDevice);
-	CELL_NO = ((int)(BOARDER_D_H-BOARDER_U_H)/CELL_RESO_TEMP) * XLENGTH_TEMP;
-	cudaMemcpyToSymbol(CELL_NO_D, &CELL_NO, sizeof(int), 0, cudaMemcpyHostToDevice);
-	GRID_SIZE = AGENT_NO%BLOCK_SIZE==0 ? 
-		AGENT_NO/BLOCK_SIZE : AGENT_NO/BLOCK_SIZE + 1;
+	int CNO_PER_DIM_H = (int)pow((float)2, DISCRETI);
+	cudaMemcpyToSymbol(CNO_PER_DIM, &CNO_PER_DIM_H, sizeof(int));
+	cudaCheckErrors("readConfig");
+	
+	CELL_NO = CNO_PER_DIM_H * CNO_PER_DIM_H;
+	cudaMemcpyToSymbol(CELL_NO_D, &CELL_NO, sizeof(int));
+	cudaCheckErrors("readConfig");
+	
+	float CLEN_X_H = (float)(BOARDER_R_H-BOARDER_L_H)/CNO_PER_DIM_H;
+	float CLEN_Y_H = (float)(BOARDER_D_H-BOARDER_U_H)/CNO_PER_DIM_H;
+	cudaMemcpyToSymbol(CLEN_X, &CLEN_X_H, sizeof(int));
+	cudaCheckErrors("readConfig");
+	cudaMemcpyToSymbol(CLEN_Y, &CLEN_Y_H, sizeof(int));
+	cudaCheckErrors("readConfig");
+
+	GRID_SIZE = AGENT_NO%BLOCK_SIZE==0 ? AGENT_NO/BLOCK_SIZE : AGENT_NO/BLOCK_SIZE + 1;
 }
 
 void readRandDebug(float *devRandDebug, std::string str1, std::string str2){
@@ -237,7 +264,7 @@ void oneStep(BoidModel *model, BoidModel *model_h){
 
 int main(int argc, char *argv[]){
 	cudaDeviceSetCacheConfig(cudaFuncCachePreferL1);
-	readConfig();
+	readConfig(argv[1]);
 	int gSize = GRID_SIZE;
 
 	BoidModel *model_h = new BoidModel();
