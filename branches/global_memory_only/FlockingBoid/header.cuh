@@ -9,29 +9,36 @@
 #include "device_launch_parameters.h"
 
 //global variables
-__constant__ int AGENT_NO_D;
-__constant__ int CELL_NO_D;
-__constant__ int CELL_RESO;
-__constant__ int BOARDER_L_D;
-__constant__ int BOARDER_R_D;
-__constant__ int BOARDER_U_D;
-__constant__ int BOARDER_D_D;
-__constant__ int XLENGTH;
-int BOARDER_L_H;
-int BOARDER_R_H;
-int BOARDER_U_H;
-int BOARDER_D_H;
-int AGENT_NO;
-int CELL_NO;
-int STEPS;
+__constant__ int AGENT_NO_D;	//copied from host
+__constant__ int CELL_NO_D;		//copied from host
+__constant__ int BOARDER_L_D;	//copied from host
+__constant__ int BOARDER_R_D;	//copied from host
+__constant__ int BOARDER_U_D;	//copied from host
+__constant__ int BOARDER_D_D;	//copied from host
+__constant__ int CNO_PER_DIM;	//(int)pow((float)2, DISCRETI)
+__constant__ float CLEN_X;		//(float)(BOARDER_R-BOARDER_L)/CNO_PER_DIM;
+__constant__ float CLEN_Y;		//(float)(BOARDER_D-BOARDER_U)/CNO_PER_DIM;
+__constant__ float RANGE;		//read from config
 
-int SELECTION;
-bool VISUALIZE = false;
-int VERBOSE;
-int FILE_GEN;
+int CELL_NO;		//CNO_PER_DIM * CNO_PER_DIM;
+int DISCRETI;		//read from config
+float RANGE_H;		//read from config
+size_t HEAP_SIZE;	//read from config
 
-int BLOCK_SIZE;
-int GRID_SIZE;
+int BOARDER_L_H;	//read from config
+int BOARDER_R_H;	//read from config
+int BOARDER_U_H;	//read from config
+int BOARDER_D_H;	//read from config
+int AGENT_NO;		//read from config
+int STEPS;			//read from config
+int SELECTION;		//read from config
+bool VISUALIZE;		//read from config
+int VERBOSE;		//read from config
+int FILE_GEN;		//read from config
+char* dataFileName; //read from config
+
+int BLOCK_SIZE;		//read from config
+int GRID_SIZE;		//calc with BLOCK_SIZE and AGENT_NO
 
 typedef struct int_2d
 {
@@ -39,7 +46,7 @@ typedef struct int_2d
 	int y;
 	__device__ __host__ int_2d():x(0),y(0){}
 	__device__ __host__ int cell_id(){
-		return y * XLENGTH + x;
+		return y * CNO_PER_DIM + x;
 	}
 	__device__ __host__ void print(){
 		printf("(%d, %d)", x, y);

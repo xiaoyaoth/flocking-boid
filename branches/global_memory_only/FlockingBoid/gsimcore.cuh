@@ -283,7 +283,7 @@ __device__ float Continuous2D::tds(const float2d_t loc1, const float2d_t loc2) c
 	return sqrt(dx*dx + dy*dy);
 }
 __device__ int Continuous2D::boarderPrimitive(iterInfo &info) const{
-	int cellIdBoarder = info.cellCur.y * XLENGTH + info.cellDR.x + 1;
+	int cellIdBoarder = info.cellCur.y * CNO_PER_DIM + info.cellDR.x + 1;
 	int ptrBoarder = -1;
 	if (cellIdBoarder < CELL_NO_D)
 		ptrBoarder = cellIdx[cellIdBoarder];
@@ -358,13 +358,13 @@ __device__ NextNeighborControl Continuous2D::nextNeighborInit(const GAgent* ag,
 	info.range = range;
 
 	info.cellUL.x = (pos.x-range)>BOARDER_L_D ? 
-		(int)(pos.x-range)/CELL_RESO : (int)BOARDER_L_D/CELL_RESO;
+		(int)(pos.x-range)/CLEN_X : (int)BOARDER_L_D/CLEN_X;
 	info.cellDR.x = (pos.x+range)<BOARDER_R_D ? 
-		(int)(pos.x+range)/CELL_RESO : (int)BOARDER_R_D/CELL_RESO - 1;
+		(int)(pos.x+range)/CLEN_X : (int)BOARDER_R_D/CLEN_X - 1;
 	info.cellUL.y = (pos.y-range)>BOARDER_U_D ? 
-		(int)(pos.y-range)/CELL_RESO : (int)BOARDER_U_D/CELL_RESO;
+		(int)(pos.y-range)/CLEN_Y : (int)BOARDER_U_D/CLEN_Y;
 	info.cellDR.y = (pos.y+range)<BOARDER_D_D ? 
-		(int)(pos.y+range)/CELL_RESO : (int)BOARDER_D_D/CELL_RESO - 1;
+		(int)(pos.y+range)/CLEN_Y : (int)BOARDER_D_D/CLEN_Y - 1;
 	info.cellCur.x = info.cellUL.x;
 	info.cellCur.y = info.cellUL.y;
 
@@ -375,7 +375,6 @@ __device__ NextNeighborControl Continuous2D::nextNeighborInit(const GAgent* ag,
 		return FOUND;
 	else
 		return this->nextNeighbor(info);
-	__syncthreads();
 }
 
 //GAgent
@@ -487,7 +486,7 @@ __global__ void c2dUtil::gen_hash_kernel(int *hash, Continuous2D *c2d)
 	GAgent *ag = c2d->obtainAgentPerThread();
 	if(ag != NULL) {
 		int idx = ag->getAgId();
-		hash[idx] = (int)(ag->loc.x/CELL_RESO) + XLENGTH * (int)(ag->loc.y/CELL_RESO);
+		hash[idx] = (int)(ag->loc.x/CLEN_X) + CNO_PER_DIM * (int)(ag->loc.y/CLEN_Y);
 		c2d->neighborIdx[idx] = ag->getAgId();
 	}
 }
