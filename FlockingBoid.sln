@@ -16,6 +16,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "TestOpenmp", "TestOpenmp\Te
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "TestCPP", "TestCPP\CppTest.vcxproj", "{19F89C35-FD67-42CB-8BA8-03AEE2593E1B}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "FlockingBoid", "FlockingBoid\FlockingBoid.vcxproj", "{A8867CDA-BA27-4569-AD02-6EBEF3B6A73F}"
+EndProject
 Global
 	GlobalSection(SubversionScc) = preSolution
 		Svn-Managed = True
@@ -42,6 +44,10 @@ Global
 		{19F89C35-FD67-42CB-8BA8-03AEE2593E1B}.Debug|Win32.Build.0 = Debug|Win32
 		{19F89C35-FD67-42CB-8BA8-03AEE2593E1B}.Release|Win32.ActiveCfg = Release|Win32
 		{19F89C35-FD67-42CB-8BA8-03AEE2593E1B}.Release|Win32.Build.0 = Release|Win32
+		{A8867CDA-BA27-4569-AD02-6EBEF3B6A73F}.Debug|Win32.ActiveCfg = Debug|Win32
+		{A8867CDA-BA27-4569-AD02-6EBEF3B6A73F}.Debug|Win32.Build.0 = Debug|Win32
+		{A8867CDA-BA27-4569-AD02-6EBEF3B6A73F}.Release|Win32.ActiveCfg = Release|Win32
+		{A8867CDA-BA27-4569-AD02-6EBEF3B6A73F}.Release|Win32.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
