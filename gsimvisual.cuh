@@ -1,7 +1,7 @@
 #ifndef GSIMVISUAL_H
 #define GSIMVISUAL_H
 
-#include "gsimlib_header.cuh"
+#include "header.cuh"
 #include "common\book.h"
 #include "common\gl_helper.h"
 #include "cuda_gl_interop.h"
@@ -49,7 +49,7 @@ private:
 			glBufferData( GL_PIXEL_UNPACK_BUFFER_ARB, this->height*this->height*sizeof(uchar4),
 				NULL, GL_DYNAMIC_DRAW_ARB );
 			cudaGraphicsGLRegisterBuffer(&resource, bufferObj, cudaGraphicsMapFlagsNone);
-			getLastCudaError("cudaGraphicsGLRegisterBuffer");
+			cudaCheckErrors("cudaGraphicsGLRegisterBuffer");
 
 			glutDisplayFunc(drawFunc);
 			glutIdleFunc(idleFunc);
@@ -62,14 +62,15 @@ private:
 		uchar4* devPtr;
 		size_t size;
 		cudaGraphicsMapResources(1, &vis.resource, NULL);
-		getLastCudaError("cudaGraphicsMapResources");
+		cudaCheckErrors("cudaGraphicsMapResources");
 		cudaGraphicsResourceGetMappedPointer( (void**)&devPtr, &size, vis.resource);
-		getLastCudaError("cudaGraphicsResourceGetMappedPointer");
+		cudaCheckErrors("cudaGraphicsResourceGetMappedPointer");
+		int gSize = GRID_SIZE;
 		
 		visUtil::paint<<<256, 256>>>(devPtr, vis.world);
 
 		cudaGraphicsUnmapResources(1, &vis.resource, NULL);
-		getLastCudaError("cudaGraphicsUnmapResources");
+		cudaCheckErrors("cudaGraphicsUnmapResources");
 
 		glutPostRedisplay();
 	}
@@ -83,17 +84,17 @@ private:
 		uchar4* devPtr;
 		size_t size;
 		cudaGraphicsMapResources(1, &vis.resource, NULL);
-		getLastCudaError("cudaGraphicsMapResources");
+		cudaCheckErrors("cudaGraphicsMapResources");
 		cudaGraphicsResourceGetMappedPointer( (void**)&devPtr, &size, vis.resource);
-		getLastCudaError("cudaGraphicsResourceGetMappedPointer");
+		cudaCheckErrors("cudaGraphicsResourceGetMappedPointer");
 		cudaMemset(devPtr, 0, size);
-		getLastCudaError("cudaMemset");
+		cudaCheckErrors("cudaMemset");
 
 		int gSize = GRID_SIZE;
 		visUtil::paint<<<gSize, BLOCK_SIZE>>>(devPtr, vis.world);
 
 		cudaGraphicsUnmapResources(1, &vis.resource, NULL);
-		getLastCudaError("cudaGraphicsUnmapResources");
+		cudaCheckErrors("cudaGraphicsUnmapResources");
 
 		glDrawPixels( vis.height, vis.height, GL_RGBA,GL_UNSIGNED_BYTE, 0 );
 
@@ -126,9 +127,8 @@ public:
 __global__ void visUtil::paint(uchar4 *devPtr, const Continuous2D *world){
 
 	GAgent *ag = world->obtainAgentPerThread();
-	float2d_t myLoc = ag->getLoc();
-	int canvasX = (int)(myLoc.x*256/1000);
-	int canvasY = (int)(myLoc.y*256/1000);
+	int canvasX = (int)(ag->loc.x*256/1000);
+	int canvasY = (int)(ag->loc.y*256/1000);
 	int canvasIdx = canvasY*256 + canvasX;
 	const int idx = canvasIdx;
 	devPtr[idx].x = 0;
