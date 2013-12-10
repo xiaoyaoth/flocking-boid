@@ -262,9 +262,9 @@ void oneStep(BoidModel *model, BoidModel *model_h){
 	schUtil::swapAgentsInScheduler<<<gSize, BLOCK_SIZE>>>(model);
 }
 
-int main(int argc, char *argv[]){
+int mainWork(char *config_file){
 	cudaDeviceSetCacheConfig(cudaFuncCachePreferL1);
-	readConfig(argv[1]);
+	readConfig(config_file);
 	int gSize = GRID_SIZE;
 
 	BoidModel *model_h = new BoidModel();
@@ -295,56 +295,39 @@ int main(int argc, char *argv[]){
 	cudaMemcpyToSymbol(randDebug, &devRandDebug, sizeof(devRandDebug),
 		0, cudaMemcpyHostToDevice);
 
+#ifdef _WIN32
 	GSimVisual::getInstance().setWorld(model_h->world);
 	for (int i=0; i<STEPS; i++){
-		//printf("STEP:%d\n", i);
-		//std::getline(fin, str1);
-		//std::getline(fin, str2);
-		//readRandDebug(devRandDebug, str1, str2);
+		if ((i%(STEPS/10))==0) printf("STEP:%d ", i);
 		oneStep(model, model_h);
 		GSimVisual::getInstance().animate();
 		writeRandDebug(i, devRandDebug);
 	}
 	GSimVisual::getInstance().stop();
-	cudaCheckErrors("finished");
-	//system("PAUSE");
+#else
+	for (int i=0; i<STEPS; i++){
+	 	if ((i%(STEPS/10))==0) printf("STEP:%d ", i);
+		oneStep(model, model_h);
+		writeRandDebug(i, devRandDebug);
+	}
+#endif
 	return 0;
 }
 
-void backupcode1(){ //devRand
-	int gSize = GRID_SIZE;
-	float *devRandDebug;
-	cudaMalloc((void**)&devRandDebug, STRIP*gSize*BLOCK_SIZE*sizeof(float));
-	cudaMemcpyToSymbol(randDebug, &devRandDebug, sizeof(devRandDebug),
-		0, cudaMemcpyHostToDevice);
-
-	std::fstream randDebugOut;
-	std::fstream randDebugOut2;
-	randDebugOut.open("randDebugOut.txt", std::ios::out);
-	randDebugOut2.open("randDebugOut2.txt", std::ios::out);
-	float *hostRandDebug = (float*)malloc(STRIP*gSize*BLOCK_SIZE*sizeof(float));
-
-	cudaMemcpy(hostRandDebug, devRandDebug, 
-		STRIP*gSize*BLOCK_SIZE*sizeof(float), cudaMemcpyDeviceToHost);
-	for(int i=0; i<gSize*BLOCK_SIZE; i++) {
-		randDebugOut2<<hostRandDebug[STRIP*i]<<"\t";
-		randDebugOut2.flush();
-	}
-	randDebugOut2<<std::endl;
-	for(int i=0; i<gSize*BLOCK_SIZE; i++) {
-		randDebugOut2<<hostRandDebug[STRIP*i+1]<<"\t";
-		randDebugOut2.flush();
-	}
-	randDebugOut2<<std::endl;
-	for(int i=0; i<gSize*BLOCK_SIZE; i++) {
-		randDebugOut<<
-			hostRandDebug[STRIP*i]<<" \t"<<
-			hostRandDebug[STRIP*i+1]<<" \t"<<
-			hostRandDebug[STRIP*i+2]<<" \t"<<
-			hostRandDebug[STRIP*i+3]<<" \t"<<
-			std::endl;
-		randDebugOut.flush();
-	}
-	randDebugOut.close();
-	randDebugOut2.close();
+int main(int argc, char *argv[]){
+#ifndef _WIN32
+	struct timeval start, end;
+	gettimeofday(&start, NULL);
+	mainWork(argv[1]);
+	gettimeofday(&end, NULL);
+	printf("%ld\n", ((end.tv_sec * 1000000 + end.tv_usec)
+		  - (start.tv_sec * 1000000 + start.tv_usec)));
+#else
+	int start = GetTickCount();
+	mainWork(argv[1]);
+	int end = GetTickCount();
+	int diff = end-start;
+	std::cout<<"Took "<<diff<<" ms"<<std::endl;
+	system("PAUSE");
+#endif
 }
