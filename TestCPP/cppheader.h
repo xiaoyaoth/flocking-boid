@@ -11,10 +11,9 @@
 #define BOARDER_R	1000
 #define BOARDER_U	0
 #define BOARDER_D	1000
-#define AGENT_NO	20000
+#define AGENT_NO	1024
 #define BLOCK_SIZE	1024
-#define DISCRETI	5
-#define DATA_FILENAME	"pos_data.txt.10240"
+#define DISCRETI	7
 int CNO_PER_DIM = (int)pow((float)2, DISCRETI);
 int CELL_NO = CNO_PER_DIM * CNO_PER_DIM;
 float CLEN_X = (float)(BOARDER_R-BOARDER_L)/CNO_PER_DIM;

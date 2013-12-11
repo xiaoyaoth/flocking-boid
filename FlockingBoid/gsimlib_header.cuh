@@ -7,7 +7,6 @@
 #include <iostream>
 #include "cuda_runtime.h"
 #include "device_launch_parameters.h"
-#include "float.h"
 
 __constant__ int AGENT_NO_D;	//copied from host
 __constant__ int CELL_NO_D;		//copied from host
@@ -18,12 +17,10 @@ __constant__ int BOARDER_D_D;	//copied from host
 __constant__ int CNO_PER_DIM;	//(int)pow((float)2, DISCRETI)
 __constant__ float CLEN_X;		//(float)(BOARDER_R-BOARDER_L)/CNO_PER_DIM;
 __constant__ float CLEN_Y;		//(float)(BOARDER_D-BOARDER_U)/CNO_PER_DIM;
-__constant__ float RANGE;		//read from config
+//__constant__ int SHARED_SCALE_D;//copied from host
 
 int CELL_NO;		//CNO_PER_DIM * CNO_PER_DIM;
 int DISCRETI;		//read from config
-float RANGE_H;		//read from config
-size_t HEAP_SIZE;	//read from config
 
 int BOARDER_L_H;	//read from config
 int BOARDER_R_H;	//read from config
@@ -31,11 +28,11 @@ int BOARDER_U_H;	//read from config
 int BOARDER_D_H;	//read from config
 int AGENT_NO;		//read from config
 int STEPS;			//read from config
+//int SHARED_SCALE_H;	//read from config
 int SELECTION;		//read from config
 bool VISUALIZE;		//read from config
 int VERBOSE;		//read from config
 int FILE_GEN;		//read from config
-char* dataFileName; //read from config
 
 int BLOCK_SIZE;		//read from config
 int GRID_SIZE;		//calc with BLOCK_SIZE and AGENT_NO
@@ -45,22 +42,23 @@ typedef struct int_2d
 	int x;
 	int y;
 
-	__device__ int cell_id(){
+	__device__ __host__ int cell_id(){
 		return y * CNO_PER_DIM + x;
 	}
 	__device__ __host__ int zcode(){
 		int xt = x;
 		int yt = y;
-		xt &= 0x0000ffff;					// x = ---- ---- ---- ---- fedc ba98 7654 3210
-		yt &= 0x0000ffff;					// x = ---- ---- ---- ---- fedc ba98 7654 3210
+		xt &= 0x0000ffff;                 // x = ---- ---- ---- ---- fedc ba98 7654 3210
 		xt = (xt ^ (xt << 8)) & 0x00ff00ff; // x = ---- ---- fedc ba98 ---- ---- 7654 3210
+		xt = (xt ^ (xt << 4)) & 0x0f0f0f0f; // x = ---- fedc ---- ba98 ---- 7654 ---- 3210
+		xt = (xt ^ (xt << 2)) & 0x33333333; // x = --fe --dc --ba --98 --76 --54 --32 --10
+		xt = (xt ^ (xt << 1)) & 0x55555555; // x = -f-e -d-c -b-a -9-8 -7-6 -5-4 -3-2 -1-0
+
+		yt &= 0x0000ffff;                  // x = ---- ---- ---- ---- fedc ba98 7654 3210
 		yt = (yt ^ (yt << 8)) & 0x00ff00ff; // x = ---- ---- fedc ba98 ---- ---- 7654 3210
 		yt = (yt ^ (yt << 4)) & 0x0f0f0f0f; // x = ---- fedc ---- ba98 ---- 7654 ---- 3210
-		xt = (xt ^ (xt << 4)) & 0x0f0f0f0f; // x = ---- fedc ---- ba98 ---- 7654 ---- 3210
 		yt = (yt ^ (yt << 2)) & 0x33333333; // x = --fe --dc --ba --98 --76 --54 --32 --10
-		xt = (xt ^ (xt << 2)) & 0x33333333; // x = --fe --dc --ba --98 --76 --54 --32 --10
 		yt = (yt ^ (yt << 1)) & 0x55555555; // x = -f-e -d-c -b-a -9-8 -7-6 -5-4 -3-2 -1-0
-		xt = (xt ^ (xt << 1)) & 0x55555555; // x = -f-e -d-c -b-a -9-8 -7-6 -5-4 -3-2 -1-0
 
 		return xt | (yt << 1);
 	}
@@ -84,6 +82,7 @@ typedef struct GAgentData{
 	int id;
 	float2d_t loc;
 } GAgentData_t;
+union dataUnion;
 
 namespace SCHEDULE_CONSTANT{
 	static const float EPOCH = 0.0;
@@ -116,8 +115,5 @@ inline void __getLastCudaError( const char *errorMessage, const char *file, cons
 		exit(-1);
 	}
 }
-
-__device__ float *randDebug;
-#define BOID_DEBUG
 
 #endif

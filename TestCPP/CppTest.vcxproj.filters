@@ -15,6 +15,9 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="testXML.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="test4.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
