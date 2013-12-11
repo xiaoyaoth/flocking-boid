@@ -1,0 +1,59 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 11.00
+# Visual Studio 2010
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{56A09F29-B46C-4310-87B5-A6EF837F03D4}"
+	ProjectSection(SolutionItems) = preProject
+		FlockingBoid.vsmdi = FlockingBoid.vsmdi
+		FlockingBoid1.vsmdi = FlockingBoid1.vsmdi
+		Local.testsettings = Local.testsettings
+		TraceAndTestImpact.testsettings = TraceAndTestImpact.testsettings
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "TestProject1", "TestProject1\TestProject1.vcxproj", "{8D3E9688-A168-4D4C-AB42-D9B8865AC3BD}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "TestVisual", "VisualTest\VisualTest.vcxproj", "{5B460773-3DF3-41C4-AC4B-726AEC85AEB7}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "TestOpenmp", "TestOpenmp\TestOpenmp.vcxproj", "{551DCBFC-BD2A-47B5-9C96-3E0E1E706E54}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "TestCPP", "TestCPP\CppTest.vcxproj", "{19F89C35-FD67-42CB-8BA8-03AEE2593E1B}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "FlockingBoid", "FlockingBoid\FlockingBoid.vcxproj", "{A8867CDA-BA27-4569-AD02-6EBEF3B6A73F}"
+EndProject
+Global
+	GlobalSection(SubversionScc) = preSolution
+		Svn-Managed = True
+		Manager = AnkhSVN - Subversion Support for Visual Studio
+	EndGlobalSection
+	GlobalSection(TestCaseManagementSettings) = postSolution
+		CategoryFile = FlockingBoid1.vsmdi
+	EndGlobalSection
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Win32 = Debug|Win32
+		Release|Win32 = Release|Win32
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{8D3E9688-A168-4D4C-AB42-D9B8865AC3BD}.Debug|Win32.ActiveCfg = Debug|Win32
+		{8D3E9688-A168-4D4C-AB42-D9B8865AC3BD}.Debug|Win32.Build.0 = Debug|Win32
+		{8D3E9688-A168-4D4C-AB42-D9B8865AC3BD}.Release|Win32.ActiveCfg = Release|Win32
+		{8D3E9688-A168-4D4C-AB42-D9B8865AC3BD}.Release|Win32.Build.0 = Release|Win32
+		{5B460773-3DF3-41C4-AC4B-726AEC85AEB7}.Debug|Win32.ActiveCfg = Debug|Win32
+		{5B460773-3DF3-41C4-AC4B-726AEC85AEB7}.Debug|Win32.Build.0 = Debug|Win32
+		{5B460773-3DF3-41C4-AC4B-726AEC85AEB7}.Release|Win32.ActiveCfg = Release|Win32
+		{5B460773-3DF3-41C4-AC4B-726AEC85AEB7}.Release|Win32.Build.0 = Release|Win32
+		{551DCBFC-BD2A-47B5-9C96-3E0E1E706E54}.Debug|Win32.ActiveCfg = Debug|Win32
+		{551DCBFC-BD2A-47B5-9C96-3E0E1E706E54}.Debug|Win32.Build.0 = Debug|Win32
+		{551DCBFC-BD2A-47B5-9C96-3E0E1E706E54}.Release|Win32.ActiveCfg = Release|Win32
+		{551DCBFC-BD2A-47B5-9C96-3E0E1E706E54}.Release|Win32.Build.0 = Release|Win32
+		{19F89C35-FD67-42CB-8BA8-03AEE2593E1B}.Debug|Win32.ActiveCfg = Debug|Win32
+		{19F89C35-FD67-42CB-8BA8-03AEE2593E1B}.Debug|Win32.Build.0 = Debug|Win32
+		{19F89C35-FD67-42CB-8BA8-03AEE2593E1B}.Release|Win32.ActiveCfg = Release|Win32
+		{19F89C35-FD67-42CB-8BA8-03AEE2593E1B}.Release|Win32.Build.0 = Release|Win32
+		{A8867CDA-BA27-4569-AD02-6EBEF3B6A73F}.Debug|Win32.ActiveCfg = Debug|Win32
+		{A8867CDA-BA27-4569-AD02-6EBEF3B6A73F}.Debug|Win32.Build.0 = Debug|Win32
+		{A8867CDA-BA27-4569-AD02-6EBEF3B6A73F}.Release|Win32.ActiveCfg = Release|Win32
+		{A8867CDA-BA27-4569-AD02-6EBEF3B6A73F}.Release|Win32.Build.0 = Release|Win32
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal
