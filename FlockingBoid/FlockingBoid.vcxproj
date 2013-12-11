@@ -102,13 +102,6 @@ copy "$(CudaToolkitBinDir)\cudart*.dll" "$(OutDir)"</Command>
     <None Include="gsimlib_header.cuh" />
     <None Include="pos_data.txt.10240" />
   </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="common\book.h" />
-    <ClInclude Include="common\cpu_anim.h" />
-    <ClInclude Include="common\cpu_bitmap.h" />
-    <ClInclude Include="common\gl_helper.h" />
-    <ClInclude Include="common\gpu_anim.h" />
-  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
     <Import Project="$(VCTargetsPath)\BuildCustomizations\CUDA 4.2.targets" />
