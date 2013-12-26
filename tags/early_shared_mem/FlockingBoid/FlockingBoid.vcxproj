@@ -13,6 +13,7 @@
   <PropertyGroup Label="Globals">
     <ProjectGuid>{A8867CDA-BA27-4569-AD02-6EBEF3B6A73F}</ProjectGuid>
     <RootNamespace>FlockingBoid</RootNamespace>
+    <ProjectName>FlockingBoid_early_smem</ProjectName>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
@@ -91,6 +92,7 @@ copy "$(CudaToolkitBinDir)\cudart*.dll" "$(OutDir)"</Command>
     </CudaCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <None Include="config.txt" />
     <None Include="gsimapp_boid.cuh" />
     <None Include="gsimapp_header.cuh" />
     <None Include="gsimcore.cuh">

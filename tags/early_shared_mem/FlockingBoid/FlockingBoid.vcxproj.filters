@@ -27,5 +27,6 @@
     <None Include="gsimlib_header.cuh">
       <Filter>lib</Filter>
     </None>
+    <None Include="config.txt" />
   </ItemGroup>
 </Project>
