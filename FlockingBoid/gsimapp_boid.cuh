@@ -27,7 +27,7 @@ public:
 		consistency = 1.0;
 		momentum = 1.0;
 		deadFlockerProbability = 0.1;
-		neighborhood = 150;
+		neighborhood = RANGE_H;
 		jump = 0.7;
 	}
 	void allocOnDevice();
@@ -281,7 +281,7 @@ __device__ float2d_t PreyBoid::consistency(const Continuous2D *world){
 	float x = 0;
 	float y = 0;
 	int count = 0;
-	NextNeighborControl nnc = world->nextNeighborInit2(this, this->model->neighborhood);
+	NextNeighborControl nnc = world->nextNeighborInit2(this,RANGE);
 	while (nnc != STOP){
 		PreyBoidData_t *other = (PreyBoidData_t*)world->obtainAgentDataByIterInfo2();
 		if(!other->dead){
@@ -307,7 +307,7 @@ __device__ float2d_t PreyBoid::cohesion(const Continuous2D *world){
 	float x = 0;
 	float y = 0;
 	int count = 0;
-	NextNeighborControl nnc = world->nextNeighborInit2(this, this->model->neighborhood);
+	NextNeighborControl nnc = world->nextNeighborInit2(this, RANGE);
 	while (nnc != STOP){
 		PreyBoidData_t *other = (PreyBoidData_t*)world->obtainAgentDataByIterInfo2();
 		if (!other->dead){
@@ -333,7 +333,7 @@ __device__ float2d_t PreyBoid::avoidance(const Continuous2D *world){
 	float y = 0;
 	int count = 0;
 	const iterInfo &info = infoArray[threadIdx.x];
-	NextNeighborControl nnc = world->nextNeighborInit2(this, this->model->neighborhood);
+	NextNeighborControl nnc = world->nextNeighborInit2(this, RANGE);
 	while(nnc != STOP){
 		PreyBoidData_t *other = (PreyBoidData_t*)world->obtainAgentDataByIterInfo2();
 
@@ -363,6 +363,7 @@ __device__ float2d_t PreyBoid::avoidance(const Continuous2D *world){
 //__device__ float2d_t PreyBoid::conformSpeed(Continuous2D *world){return float2d_t(0,0);}
 //__device__ float2d_t PreyBoid::searchMate(Continuous2D *world){return float2d_t(0,0);}
 __device__ void PreyBoid::step(GModel *model){
+	__syncthreads();
 	const BoidModel *boidModel = (BoidModel*) model;
 	PreyBoidData_t *myData = (PreyBoidData_t*)this->data;
 	if (myData->dead)

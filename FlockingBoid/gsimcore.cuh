@@ -327,6 +327,7 @@ __device__ NextNeighborControl Continuous2D::nextNeighbor2() const {
 			return FOUND;
 		nnc = this->nextNeighborPrimitive(info);
 	}
+	__syncthreads();
 	return nnc;
 }
 __device__ NextNeighborControl Continuous2D::nextNeighborInit2(const GAgent* ag, const float range) const {

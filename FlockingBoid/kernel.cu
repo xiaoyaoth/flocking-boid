@@ -14,12 +14,14 @@ __global__ void seeAllAgents(BoidModel *gm){
 		ag->getId();
 }
 
+char *datafile;
+
 void initOnDevice(float *x_pos, float *y_pos){
 	float *x_pos_h, *y_pos_h;
 	x_pos_h = (float*)malloc(AGENT_NO*sizeof(float));
 	y_pos_h = (float*)malloc(AGENT_NO*sizeof(float));
 
-	std::ifstream fin("pos_data.txt.10240");
+	std::ifstream fin(datafile);
 	std::string rec;
 
 	char *cstr, *p;
@@ -125,6 +127,11 @@ void readConfig(){
 			BOARDER_D_H = atoi(p);
 			cudaMemcpyToSymbol(BOARDER_D_D, &BOARDER_D_H, sizeof(int), 0, cudaMemcpyHostToDevice);
 		}
+		if(strcmp(p, "RANGE")==0){
+			p=strtok(NULL, "=");
+			RANGE_H = atof(p);
+			cudaMemcpyToSymbol(RANGE, &RANGE_H, sizeof(float));
+		}
 		if(strcmp(p, "DISCRETI")==0){
 			p=strtok(NULL, "=");
 			DISCRETI = atoi(p);
@@ -152,6 +159,11 @@ void readConfig(){
 		if(strcmp(p, "BLOCK_SIZE")==0){
 			p=strtok(NULL, "=");
 			BLOCK_SIZE = atoi(p);
+		}
+		if(strcmp(p, "DATA_FILENAME")==0){
+			datafile = new char[20];
+			p=strtok(NULL, "=");
+			strcpy(datafile, p);
 		}
 	}
 	getLastCudaError("readConfig");
@@ -245,7 +257,7 @@ void oneStep(BoidModel *model, BoidModel *model_h){
 	schUtil::swapAgentsInScheduler<<<gSize, BLOCK_SIZE>>>(model);
 }
 
-int main(int argc, char *argv[]){
+int mainWork(char* filename){
 	cudaDeviceSetCacheConfig(cudaFuncCachePreferShared);
 	readConfig();
 	int gSize = GRID_SIZE;
@@ -278,7 +290,7 @@ int main(int argc, char *argv[]){
 
 	GSimVisual::getInstance().setWorld(model_h->world);
 	for (int i=0; i<STEPS; i++){
-		//printf("STEP:%d\n", i);
+		printf("STEP:%d\n", i);
 		oneStep(model, model_h);
 		GSimVisual::getInstance().animate();
 		writeRandDebug(i, devRandDebug);
@@ -287,4 +299,22 @@ int main(int argc, char *argv[]){
 	getLastCudaError("finished");
 	//system("PAUSE");
 	return 0;
+}
+
+int main(int argc, char *argv[]){
+#ifndef _WIN32
+	struct timeval start, end;
+	gettimeofday(&start, NULL);
+	mainWork(argv[1]);
+	gettimeofday(&end, NULL);
+	printf("%ld\n", ((end.tv_sec * 1000000 + end.tv_usec)
+		  - (start.tv_sec * 1000000 + start.tv_usec)));
+#else
+	int start = GetTickCount();
+	mainWork(argv[1]);
+	int end = GetTickCount();
+	int diff = end-start;
+	std::cout<<"Took "<<diff<<" ms"<<std::endl;
+	system("PAUSE");
+#endif
 }
